@@ -200,11 +200,12 @@ function scoreOf({ stars, completeness, asked, budget, hintsUsed, hintsAllowed,
   const timeBudget = 90 + 60 * d                      // 秒：1★ 150 → 5★ 390
   const T = clamp(0.90, 1.08, 1.08 - 0.18 * clamp(0, 1, (Number(seconds) || 0) / timeBudget))
   const score = Math.round(100 * D * C * Q * H * T)
-  return { score, rank: rankOf(score) }
+  return { score, rank: rankOf(score, d) }
 }
 
-function rankOf(score) {
-  if (score >= 150) return '汤神'
+/** 段位：汤神要求「5 星题 + 170 分」，其余按分数。 */
+function rankOf(score, stars) {
+  if (Number(stars) === 5 && score >= 170) return '汤神'
   if (score >= 120) return '老饕'
   if (score >= 90) return '熟客'
   if (score >= 60) return '新手'
