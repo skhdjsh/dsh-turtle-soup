@@ -89,7 +89,10 @@ const index = {
       icon: flag('icon', iconData),
       author: flag('author', pkg.author ?? ''),
       ...(flag('homepage', pkg.homepage) ? { homepage: flag('homepage', pkg.homepage) } : {}),
-      repository: { url: pkg.repository.url.replace(/\.git$/, ''), directory: pkg.repository.directory },
+      repository: {
+        url: pkg.repository.url.replace(/\.git$/, ''),
+        ...(pkg.repository.directory ? { directory: pkg.repository.directory } : {}),
+      },
       metadata: {
         category: 'game',
         keywords: pkg.keywords ?? [],

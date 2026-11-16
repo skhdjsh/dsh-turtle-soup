@@ -35,8 +35,7 @@
       "author": "zexuan604",
       "homepage": "https://github.com/skhdjsh/dsh-turtle-soup",
       "repository": {
-        "url": "https://github.com/skhdjsh/dsh-turtle-soup",
-        "directory": "dsh-turtle-soup"
+        "url": "https://github.com/skhdjsh/dsh-turtle-soup"
       },
       "metadata": {
         "category": "game",
@@ -53,11 +52,11 @@
       "versions": [
         {
           "version": "1.2.0",
-          "publishTimestamp": 1794852955,
+          "publishTimestamp": 1794853982,
           "source": {
             "type": "git",
             "url": "https://github.com/skhdjsh/dsh-turtle-soup",
-            "commit": "0000000000000000000000000000000000000000",
+            "commit": "f1b27a6655f91d8d52a4c126f165a5e949b83e16",
             "path": "dsh-turtle-soup"
           },
           "engines": {
