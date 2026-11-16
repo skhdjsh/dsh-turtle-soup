@@ -10,7 +10,7 @@
 | `turtle_bank` / `turtle_list` / `turtle_get` | 概览、分页、看单题（不返回汤底） |
 | `turtle_add` / `turtle_edit` / `turtle_delete` | 加题、改题、删题（墓碑删除，同步时会传播） |
 | `turtle_export` / `turtle_submit` / `turtle_review` | 导出投稿码、收进待审、`list`/`view` 看队列与答案、通过或驳回 |
-| `turtle_issues` | 把 GitHub / Gitee 的 Issue 当投稿箱：`pull` 拉取、`approve` 通过并关 issue、`reject` 驳回 |
+| `turtle_issues` | 把 GitHub / Gitee 的 Issue 当投稿箱：`pull` 拉取、`approve` 通过并尝试关 issue（Gitee 关不掉，需手动）、`reject` 驳回 |
 | `turtle_snapshot` / `turtle_sync` | 导出整库 JSON、按 URL 或本地文件拉取并按「标题 + updated」合并 |
 | `turtle_online` | 对接 `server/` 里的后端：交题、看待审、审稿、拉取 |
 | `turtle_stats` | 记战绩 |
@@ -67,7 +67,7 @@ Gitee 用同一套工具：`provider=gitee`，再配上 `giteeRepo`；Gitee 不�
 ```
 
 - GitHub：https://github.com/settings/tokens 建 fine-grained token，只授权这个仓库、勾 `Issues: Read and write`
-- Gitee：设置 → 私人令牌，勾 `issues`
+- Gitee：设置 → 私人令牌，勾 `projects`（+ `issues`）
 
 ## 数据与备份
 
