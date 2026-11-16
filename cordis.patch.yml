@@ -1,4 +1,4 @@
-﻿- insert:
+- insert:
     - id: turtle-soup
       name: '@local/dsh-turtle-soup'
       config:
@@ -12,3 +12,7 @@
         giteeRepo: 'ni-xiaotu/turtle-submissions'
         # 只拉带这个标签的 issue
         issueLabel: 'turtle-submission'
+        # 本地 HTTP 桥：给 AstrBot 的 QQ 大肥鱼调用（只监听 127.0.0.1）
+        # 令牌从 ~/.dsh/turtle-soup/tokens.json 的 bridgeToken 读
+        bridgeEnabled: true
+        bridgePort: 8799

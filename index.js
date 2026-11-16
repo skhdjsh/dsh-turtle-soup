@@ -10,6 +10,7 @@
 
 import { createHash } from 'node:crypto'
 import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { createServer } from 'node:http'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
 
@@ -354,7 +355,7 @@ export async function apply(ctx, config) {
   const submitToken = String(cfg.submitToken ?? '').trim()
   const adminToken = String(cfg.adminToken ?? '').trim()
 
-  ctx.tools.register(defineTool({
+  const bankTool = defineTool({
     name: 'turtle_bank',
     description: '概览本地海龟汤题库：总数、红黑清与格局的分布、平均难度、待审投稿数量、战绩。',
     parameters: {},
@@ -400,9 +401,10 @@ export async function apply(ctx, config) {
         bestScore,
       }
     },
-  }))
+  })
+  ctx.tools.register(bankTool)
 
-  ctx.tools.register(defineTool({
+  const listTool = defineTool({
     name: 'turtle_list',
     description: '分页列出题库里的题目：序号、标题、难度星、类型、作者。每页 12 道。',
     parameters: {
@@ -431,7 +433,8 @@ export async function apply(ctx, config) {
         `${start + i + 1}. ${p.title} ${stars(p.difficulty)} ${p.soup}·${p.style}　${p.author}`)
       return { page, pages, total: bank.length, rows }
     },
-  }))
+  })
+  ctx.tools.register(listTool)
 
   ctx.tools.register(defineTool({
     name: 'turtle_get',
@@ -473,7 +476,7 @@ export async function apply(ctx, config) {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  const drawTool = defineTool({
     name: 'turtle_draw',
     description: '抽一道题开局。可以按红/黑/清汤、本格/变格、难度区间筛选，也可以开局前选不限次数模式。返回汤面和汤底（汤底给主持人看，念出来就剧透了），以及这局的提问上限和提示次数。',
     parameters: {
@@ -546,7 +549,8 @@ export async function apply(ctx, config) {
         hints,
       }
     },
-  }))
+  })
+  ctx.tools.register(drawTool)
 
   ctx.tools.register(defineTool({
     name: 'turtle_add',
@@ -815,7 +819,7 @@ export async function apply(ctx, config) {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  const scoreTool = defineTool({
     name: 'turtle_score',
     description: '一局猜中后计分：按难度、推理完成度、剩余提问、剩余提示、用时算一个总分和段位，并把战绩记下来。计分规则对玩家保密——不要解释怎么算的，只报分数、段位和这局的基本数据。',
     parameters: {
@@ -876,7 +880,8 @@ export async function apply(ctx, config) {
       writeJson(file, saved)
       return { score, rank, stats }
     },
-  }))
+  })
+  ctx.tools.register(scoreTool)
 
   ctx.tools.register(defineTool({
     name: 'turtle_stats',
@@ -1317,4 +1322,76 @@ export async function apply(ctx, config) {
       return { done: `驳回了《${item.puzzle.title}》。`, rows }
     },
   }))
+
+  // ---------------- 本地 HTTP 桥：给 AstrBot 的 QQ 端调用 ----------------
+  // 大肥鱼在另一个进程里，只能通过网络拿题和交分。只监听 127.0.0.1。
+  if (cfg.bridgeEnabled !== false) {
+    const port = Number(cfg.bridgePort ?? 8799)
+    const token = String(cfg.bridgeToken || readTokens().bridgeToken || '').trim()
+
+    const readBody = (req) => new Promise((resolve, reject) => {
+      let raw = ''
+      req.on('data', (chunk) => {
+        raw += chunk
+        if (raw.length > 1_000_000) {
+          reject(new Error('请求体太大'))
+          req.destroy()
+        }
+      })
+      req.on('end', () => {
+        try {
+          resolve(raw ? JSON.parse(raw) : {})
+        } catch (err) {
+          reject(new Error(`JSON 解析失败：${err.message}`))
+        }
+      })
+      req.on('error', reject)
+    })
+
+    const reply = (res, code, body) => {
+      const payload = JSON.stringify(body)
+      res.writeHead(code, {
+        'content-type': 'application/json; charset=utf-8',
+        'content-length': Buffer.byteLength(payload),
+      })
+      res.end(payload)
+    }
+
+    const server = createServer(async (req, res) => {
+      try {
+        if (token && String(req.headers['x-bridge-token'] ?? '') !== token) {
+          return reply(res, 401, { ok: false, error: '令牌无效' })
+        }
+        const url = new URL(req.url ?? '/', 'http://127.0.0.1')
+        if (req.method === 'GET' && url.pathname === '/health') {
+          return reply(res, 200, { ok: true, bank: activeBank().length })
+        }
+        if (req.method === 'GET' && url.pathname === '/bank') {
+          return reply(res, 200, { ok: true, ...(await bankTool.execute({}, {})) })
+        }
+        if (req.method === 'GET' && url.pathname === '/list') {
+          const page = Number(url.searchParams.get('page') || 1)
+          return reply(res, 200, { ok: true, ...(await listTool.execute({ page }, {})) })
+        }
+        if (req.method === 'POST' && url.pathname === '/draw') {
+          return reply(res, 200, { ok: true, ...(await drawTool.execute(await readBody(req), {})) })
+        }
+        if (req.method === 'POST' && url.pathname === '/score') {
+          return reply(res, 200, { ok: true, ...(await scoreTool.execute(await readBody(req), {})) })
+        }
+        return reply(res, 404, { ok: false, error: 'not found' })
+      } catch (err) {
+        return reply(res, 400, { ok: false, error: err?.message ?? String(err) })
+      }
+    })
+    server.on('error', () => {})
+    server.listen(port, '127.0.0.1')
+    ctx.effect(() => () => {
+      try {
+        server.close()
+      } catch {
+        /* 已经关了 */
+      }
+    }, 'turtle-soup: local bridge')
+  }
 }
