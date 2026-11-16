@@ -441,8 +441,8 @@ export async function apply(ctx, config) {
       render: (_a, v) => {
         const q = v.questionsUnlimited ? '提问不限次数' : `最多问 ${v.budget} 句`
         const h = v.hintsUnlimited
-          ? `提示不限次数（题目共 ${v.hints.length} 条）`
-          : `提示最多 ${v.hintsAllowed} 次（题目共 ${v.hints.length} 条）`
+          ? `提示不限次数（题目自带 ${v.hints.length} 条，用完后按汤底现说）`
+          : `提示最多 ${v.hintsAllowed} 次（题目自带 ${v.hints.length} 条，用完后按汤底现说）`
         return text(
           `《${v.title}》${stars(v.difficulty)} ${v.kind}　${q}　${h}\n`
           + `汤面：${v.face}\n\n`
@@ -476,7 +476,7 @@ export async function apply(ctx, config) {
         budget: unlimitedQ ? 0 : budgetOf(p.difficulty, cfg),
         questionsUnlimited: unlimitedQ,
         hintsUnlimited: unlimitedH,
-        hintsAllowed: unlimitedH ? 0 : Math.min(hintsAllowedFor(p.difficulty), Math.max(1, hints.length)),
+        hintsAllowed: unlimitedH ? 0 : hintsAllowedFor(p.difficulty),
         face: p.face,
         truth: p.truth,
         hints,
