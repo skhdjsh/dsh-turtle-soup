@@ -1,0 +1,45 @@
+{
+  "name": "@local/dsh-turtle-soup",
+  "version": "1.2.0",
+  "private": true,
+  "type": "module",
+  "description": "海龟汤题库与投稿审核：本地题库、投稿码、审核入库、抽题与揭晓",
+  "license": "MIT",
+  "author": "zexuan604",
+  "keywords": [
+    "dsh",
+    "plugin",
+    "turtle-soup",
+    "海龟汤",
+    "puzzle"
+  ],
+  "homepage": "https://github.com/skhdjsh/dsh-turtle-soup",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/skhdjsh/dsh-turtle-soup.git"
+  },
+  "engines": {
+    "dsh": ">=0.2.2-rc.3"
+  },
+  "main": "index.js",
+  "exports": {
+    ".": "./index.js",
+    "./locale/*.json": "./locale/*.json",
+    "./icon": "./icon.svg"
+  },
+  "files": [
+    "index.js",
+    "cordis.patch.yml",
+    "locale/*.json",
+    "docs",
+    "icon.svg",
+    "assets",
+    "README.md",
+    "LICENSE"
+  ],
+  "dsh": {
+    "bundle": {
+      "patch": "./cordis.patch.yml"
+    }
+  }
+}

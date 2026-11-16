@@ -1,0 +1,7 @@
+{
+  "meta": {
+    "title": "Turtle soup bank",
+    "description": "A local turtle-soup puzzle bank: draw, add, and delete puzzles; others submit puzzles with a share code, and you approve them into the bank.",
+    "detail": "docs/DETAIL.md"
+  }
+}

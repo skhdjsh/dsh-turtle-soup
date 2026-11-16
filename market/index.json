@@ -1,0 +1,70 @@
+{
+  "format": 1,
+  "title": {
+    "en": "Turtle soup bank",
+    "zh": "海龟汤题库"
+  },
+  "description": {
+    "en": "Play turtle-soup puzzles, keep your own bank, and review submissions.",
+    "zh": "玩海龟汤、维护自己的题库、审核别人投的题。"
+  },
+  "metadata": {
+    "categories": {
+      "game": {
+        "title": {
+          "en": "Games",
+          "zh": "游戏"
+        }
+      }
+    },
+    "labels": {},
+    "sortKeys": {}
+  },
+  "plugins": [
+    {
+      "name": "@local/dsh-turtle-soup",
+      "title": {
+        "en": "Turtle soup bank",
+        "zh": "海龟汤题库"
+      },
+      "description": {
+        "en": "Play turtle-soup puzzles, keep your own bank, and review submissions.",
+        "zh": "玩海龟汤、维护自己的题库、审核别人提交的题。"
+      },
+      "icon": "data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIzNiIgaGVpZ2h0PSIzNiIgdmlld0JveD0iMCAwIDM2IDM2Ij4KICA8cGF0aCBkPSJNNiAxOGgyNGMwIDctNS40IDEyLTEyIDEyUzYgMjUgNiAxOHoiIGZpbGw9IiNEOEE0NkIiLz4KICA8ZWxsaXBzZSBjeD0iMTgiIGN5PSIxOCIgcng9IjEyIiByeT0iMy4yIiBmaWxsPSIjRjJEM0FCIi8+CiAgPGVsbGlwc2UgY3g9IjE4IiBjeT0iMTgiIHJ4PSI5LjIiIHJ5PSIyLjIiIGZpbGw9IiM4QzVBM0IiLz4KICA8cGF0aCBkPSJNMTMuNiAxNi40YzAtMi40IDEuOS00LjMgNC40LTQuM3M0LjQgMS45IDQuNCA0LjN6IiBmaWxsPSIjM0U3QzZBIi8+CiAgPHBhdGggZD0iTTE1LjIgMTIuOWMuNy0xLjYgMS42LTIuNSAyLjgtMi41czIuMS45IDIuOCAyLjV6IiBmaWxsPSIjM0U3QzZBIi8+Cjwvc3ZnPgo=",
+      "author": "zexuan604",
+      "homepage": "https://github.com/skhdjsh/dsh-turtle-soup",
+      "repository": {
+        "url": "https://github.com/skhdjsh/dsh-turtle-soup",
+        "directory": "dsh-turtle-soup"
+      },
+      "metadata": {
+        "category": "game",
+        "keywords": [
+          "dsh",
+          "plugin",
+          "turtle-soup",
+          "海龟汤",
+          "puzzle"
+        ],
+        "labels": [],
+        "sortKeys": {}
+      },
+      "versions": [
+        {
+          "version": "1.2.0",
+          "publishTimestamp": 1794852955,
+          "source": {
+            "type": "git",
+            "url": "https://github.com/skhdjsh/dsh-turtle-soup",
+            "commit": "0000000000000000000000000000000000000000",
+            "path": "dsh-turtle-soup"
+          },
+          "engines": {
+            "dsh": ">=0.2.2-rc.3"
+          }
+        }
+      ]
+    }
+  ]
+}
