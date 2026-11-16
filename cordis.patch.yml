@@ -1,4 +1,4 @@
-- insert:
+﻿- insert:
     - id: turtle-soup
       name: '@local/dsh-turtle-soup'
       config:
@@ -9,6 +9,6 @@
         adminToken: ''
         # 投稿箱：issue 所属仓库（owner/repo）
         githubRepo: 'skhdjsh/dsh-turtle-soup'
-        giteeRepo: ''
+        giteeRepo: 'ni-xiaotu/turtle-submissions'
         # 只拉带这个标签的 issue
         issueLabel: 'turtle-submission'

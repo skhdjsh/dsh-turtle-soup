@@ -1140,23 +1140,29 @@ export async function apply(ctx, config) {
         writeJson(bankPath(), bank)
         pending.items.splice(idx, 1)
         writeJson(pendingPath(), pending)
+        const rows = []
         if (item.issue) {
-          await closeIssue(item.issue.provider, item.issue.number, `已收录《${item.puzzle.title}》，谢谢！`)
+          try {
+            await closeIssue(item.issue.provider, item.issue.number, `已收录《${item.puzzle.title}》，谢谢！`)
+            rows.push(`已关闭 ${item.issue.provider} #${item.issue.number}`)
+          } catch (err) {
+            rows.push(`已入库，但关 issue 失败：${err.message}（请手动关闭 ${item.issue.provider} #${item.issue.number}）`)
+          }
         }
-        return {
-          done: `通过了《${item.puzzle.title}》，已入库。`,
-          rows: item.issue ? [`已关闭 ${item.issue.provider} #${item.issue.number}`] : [],
-        }
+        return { done: `通过了《${item.puzzle.title}》，已入库。`, rows }
       }
       pending.items.splice(idx, 1)
       writeJson(pendingPath(), pending)
+      const rows = []
       if (item.issue) {
-        await closeIssue(item.issue.provider, item.issue.number, `驳回：${args.reason || '未通过审核'}`)
+        try {
+          await closeIssue(item.issue.provider, item.issue.number, `驳回：${args.reason || '未通过审核'}`)
+          rows.push(`已关闭 ${item.issue.provider} #${item.issue.number}`)
+        } catch (err) {
+          rows.push(`已从待审移除，但关 issue 失败：${err.message}（请手动关闭 ${item.issue.provider} #${item.issue.number}）`)
+        }
       }
-      return {
-        done: `驳回了《${item.puzzle.title}》。`,
-        rows: item.issue ? [`已关闭 ${item.issue.provider} #${item.issue.number}`] : [],
-      }
+      return { done: `驳回了《${item.puzzle.title}》。`, rows }
     },
   }))
 }
