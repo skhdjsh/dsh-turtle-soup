@@ -200,12 +200,25 @@ function scoreOf({ stars, completeness, asked, budget, hintsUsed, hintsAllowed,
   const timeBudget = 90 + 60 * d                      // 秒：1★ 150 → 5★ 390
   const T = clamp(0.90, 1.08, 1.08 - 0.18 * clamp(0, 1, (Number(seconds) || 0) / timeBudget))
   const score = Math.round(100 * D * C * Q * H * T)
-  return { score, rank: rankOf(score, d) }
+  return { score, rank: rankOf(score, d, { asked, seconds, timeBudget }) }
 }
 
-/** 段位：汤神要求「5 星题 + 170 分」，其余按分数。 */
-function rankOf(score, stars) {
-  if (Number(stars) === 5 && score >= 170) return '汤神'
+/**
+ * 段位：五个正式档 + 四个彩蛋。
+ * 彩蛋按优先级判定，只有撞上了才出现，玩家得自己发现。
+ */
+function rankOf(score, stars, info = {}) {
+  const d = Number(stars) || 3
+  const asked = Number(info.asked) || 0
+  const seconds = Number(info.seconds) || 0
+  const budget = Number(info.timeBudget) || 0
+
+  if (d === 5 && score >= 170) return '汤神'
+  if (d === 4 && score >= 170) return '半步汤神'          // 彩蛋：4 星做到汤神的分
+  if (asked === 0) return '张嘴就来'                       // 彩蛋：一句没问就猜中
+  if (budget > 0 && seconds >= budget * 2) return '文火慢炖' // 彩蛋：超时一倍还硬推出来
+  if (d === 1 && score >= 95) return '一星神童'            // 彩蛋：1 星题打出接近满分的表现
+
   if (score >= 120) return '老饕'
   if (score >= 90) return '熟客'
   if (score >= 60) return '新手'
