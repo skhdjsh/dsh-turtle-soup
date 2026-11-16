@@ -191,22 +191,22 @@ const clamp = (lo, hi, v) => Math.max(lo, Math.min(hi, Number.isFinite(v) ? v : 
 function scoreOf({ stars, completeness, asked, budget, hintsUsed, hintsAllowed,
   seconds, unlimitedQuestions, unlimitedHints }) {
   const d = clamp(1, 5, Number(stars) || 3)
-  const D = 1 + 0.15 * (d - 1)                       // 1★1.00 → 5★1.60
-  const C = clamp(0.5, 1, Number(completeness))       // 推理完成度
+  const D = 1 + 0.20 * (d - 1)                       // 1★1.00 → 5★1.80
+  const C = clamp(0.5, 1, Number(completeness))       // 推理完成度（蒙对也算，下限 0.5）
   const Q = unlimitedQuestions
     ? 0.90
     : 0.85 + 0.15 * clamp(0, 1, budget > 0 ? (budget - asked) / budget : 0)
   const H = unlimitedHints ? 0.90 : (hintsAllowed > 0 ? 0.90 + 0.10 * clamp(0, 1, (hintsAllowed - hintsUsed) / hintsAllowed) : 1)
   const timeBudget = 90 + 60 * d                      // 秒：1★ 150 → 5★ 390
-  const T = clamp(0.80, 1.10, 1.10 - 0.30 * clamp(0, 1, (Number(seconds) || 0) / timeBudget))
+  const T = clamp(0.90, 1.08, 1.08 - 0.18 * clamp(0, 1, (Number(seconds) || 0) / timeBudget))
   const score = Math.round(100 * D * C * Q * H * T)
   return { score, rank: rankOf(score) }
 }
 
 function rankOf(score) {
-  if (score >= 150) return '汤神'
-  if (score >= 120) return '老饕'
-  if (score >= 90) return '熟客'
+  if (score >= 180) return '汤神'
+  if (score >= 140) return '老饕'
+  if (score >= 100) return '熟客'
   if (score >= 60) return '新手'
   return '摸鱼'
 }
