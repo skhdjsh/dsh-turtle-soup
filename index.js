@@ -204,9 +204,9 @@ function scoreOf({ stars, completeness, asked, budget, hintsUsed, hintsAllowed,
 }
 
 function rankOf(score) {
-  if (score >= 180) return '汤神'
-  if (score >= 140) return '老饕'
-  if (score >= 100) return '熟客'
+  if (score >= 150) return '汤神'
+  if (score >= 120) return '老饕'
+  if (score >= 90) return '熟客'
   if (score >= 60) return '新手'
   return '摸鱼'
 }
