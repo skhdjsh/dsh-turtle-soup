@@ -97,7 +97,7 @@ adminToken: ''     # 管理员令牌（自己用，能审）
 1. issue 正文贴一行 `TS1.…` 投稿码，打上 `turtle-submission` 标签；
 2. `turtle_issues` `action=pull` `provider=github`（或 `gitee`）→ 码解析后进待审；
 3. 审核用 `turtle_review action=view` 看汤底；
-4. `turtle_issues action=approve id=…` → 入库 + 自动关闭 issue + 回一句「已收录」；`action=reject` → 关闭并写理由。
+4. `turtle_issues action=approve id=…` → 入库 + 关闭 issue + 回一句「已收录」；`action=reject` → 关闭并写理由。GitHub 上会自动关；Gitee 上关不掉，见下面「Gitee 只能手动关」。
 
 **读 issue 不需要令牌，关 issue 需要。** 令牌放 `~/.dsh/turtle-soup/tokens.json`（不在仓库里）：
 
@@ -106,11 +106,14 @@ adminToken: ''     # 管理员令牌（自己用，能审）
 ```
 
 - GitHub：Settings → Developer settings → Personal access tokens，只授权这个仓库、勾 `Issues: Read and write`
-- Gitee：设置 → 私人令牌，勾 `issues`
+- Gitee：设置 → 私人令牌，勾 `projects`（+ `issues`）
+
+**Gitee 的 issue 关不掉，只能手动关。** Gitee 的 issue 写接口对个人令牌一律返回 `404 Not Found Project`（JSON 体、form 体、令牌放查询串、数字仓库 ID、显式 `repo` 参数都试过），而读 issue 正常。所以 Gitee 上的 `approve` / `reject` 会入库（或移出待审），然后在结果里提示「关 issue 失败，请手动关闭 gitee #编号」。Gitee 也不需要建标签，`pull` 时传 `label: "*"` 跳过筛选。
 
 ## 限制（如实说明）
 
 - **投稿码要靠人传**：微信/邮件/任何聊天工具都行，没有内置点对点通道。
+- **Gitee 的 issue 不能自动关闭**：Gitee 的 issue 写接口对个人令牌返回 404，`approve`/`reject` 之后需要手动去网页关帖。GitHub 不受影响。
 - **抽题结果里有汤底**：工具结果在对话里可见，所以抽完题别让玩家翻那条工具卡片；要么由你当主持人，要么用另一个会话抽题，把汤面抄给玩家。
 - 同一时间只维护一份本地题库，没有多用户权限分级；「管理员」就是装插件的那台机器。
 - **`server/` 的后端代码没在真实 Cloudflare 账号上跑过**：接口和字段按官方文档写，首次部署可能要调。

@@ -1058,7 +1058,7 @@ export async function apply(ctx, config) {
 
   ctx.tools.register(defineTool({
     name: 'turtle_issues',
-    description: '拿 GitHub 或 Gitee 的 Issue 当投稿箱：pull 把带标签的 issue 里的 TS1 投稿码收进待审；approve 通过并关掉 issue；reject 驳回并关掉。读 issue 不需要令牌，关 issue 需要（tokens.json 里的 githubToken / giteeToken）。',
+    description: '拿 GitHub 或 Gitee 的 Issue 当投稿箱：pull 把 issue 里的 TS1 投稿码收进待审；approve 通过并尝试关掉 issue；reject 驳回并尝试关掉。GitHub 能自动关闭；Gitee 的关闭接口目前返回 404，只能手动关闭（结果里会提示）。读 issue 不需要令牌，关 issue 需要（tokens.json 里的 githubToken / giteeToken）。',
     parameters: {
       action: { type: 'string', required: true, enum: ['pull', 'approve', 'reject'], description: 'pull 拉取，approve 通过，reject 驳回' },
       provider: { type: 'string', enum: ['github', 'gitee'], description: '用哪个平台，默认 github' },

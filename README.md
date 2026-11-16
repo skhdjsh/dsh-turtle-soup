@@ -50,7 +50,15 @@ adminToken: ''     # 管理员令牌（自己用）——建议留空，见下
 3. 审核时用 `turtle_review action=view` 看汤底；
 4. `turtle_issues action=approve id=…` → 入库，并自动关闭 issue、回一句「已收录」；`action=reject` 则关闭并写明理由。
 
-Gitee 完全一样，`provider=gitee`，再配 `giteeRepo`。
+Gitee 用同一套工具：`provider=gitee`，再配上 `giteeRepo`；Gitee 不需要建标签，`pull` 时传 `label: "*"` 跳过筛选。
+
+**但 Gitee 的 issue 关不掉，只能手动关。** Gitee 的 issue 写接口对个人令牌返回 `404 Not Found Project`，试过 JSON 体、form 体、令牌放查询串、数字仓库 ID、显式 `repo` 参数，全部一样；而读 issue 是正常的。
+
+所以 Gitee 上的流程是：
+
+- `pull`、审核看汤底、通过入库 —— 都正常；
+- 通过或驳回后，结果会提示「关 issue 失败（请手动关闭 gitee #编号）」，你去网页点一下关闭即可；
+- 如果你的朋友主要在 Gitee，建议直接告诉他们「收录后会手动关帖」。
 
 **读 issue 不需要令牌，关 issue 需要。** 令牌放 `~/.dsh/turtle-soup/tokens.json`：
 
