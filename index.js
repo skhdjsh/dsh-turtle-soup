@@ -182,6 +182,35 @@ function hintsAllowedFor(difficulty) {
   return 3
 }
 
+const clamp = (lo, hi, v) => Math.max(lo, Math.min(hi, Number.isFinite(v) ? v : lo))
+
+/**
+ * 一局的分数。公式对玩家保密，只对外报分数和段位。
+ * 设计目标：难度值钱、推理完整度决定性、省问题/省提示/快有加成，但单项都压不过难度与完整度。
+ */
+function scoreOf({ stars, completeness, asked, budget, hintsUsed, hintsAllowed,
+  seconds, unlimitedQuestions, unlimitedHints }) {
+  const d = clamp(1, 5, Number(stars) || 3)
+  const D = 1 + 0.15 * (d - 1)                       // 1★1.00 → 5★1.60
+  const C = clamp(0.5, 1, Number(completeness))       // 推理完成度
+  const Q = unlimitedQuestions
+    ? 0.90
+    : 0.85 + 0.15 * clamp(0, 1, budget > 0 ? (budget - asked) / budget : 0)
+  const H = unlimitedHints ? 0.90 : (hintsAllowed > 0 ? 0.90 + 0.10 * clamp(0, 1, (hintsAllowed - hintsUsed) / hintsAllowed) : 1)
+  const timeBudget = 90 + 60 * d                      // 秒：1★ 150 → 5★ 390
+  const T = clamp(0.80, 1.10, 1.10 - 0.30 * clamp(0, 1, (Number(seconds) || 0) / timeBudget))
+  const score = Math.round(100 * D * C * Q * H * T)
+  return { score, rank: rankOf(score) }
+}
+
+function rankOf(score) {
+  if (score >= 150) return '汤神'
+  if (score >= 120) return '老饕'
+  if (score >= 90) return '熟客'
+  if (score >= 60) return '新手'
+  return '摸鱼'
+}
+
 function normalize(raw, author) {
   if (!raw || typeof raw !== 'object') return null
   const title = String(raw.title ?? '').trim()
@@ -309,12 +338,14 @@ export async function apply(ctx, config) {
           pending: { type: 'integer', required: true },
           played: { type: 'integer', required: true },
           solved: { type: 'integer', required: true },
+          bestScore: { type: 'integer', required: true },
         },
       },
       render: (_a, v) => text(
         `题库 ${v.total} 道，平均 ${v.averageDifficulty.toFixed(1)} 星；待审投稿 ${v.pending} 条。\n`
         + Object.entries(v.byKind).map(([k, n]) => `${k} ${n}`).join('、') + '\n'
-        + `战绩：开局 ${v.played} 次，猜中 ${v.solved} 次。`),
+        + `战绩：开局 ${v.played} 次，猜中 ${v.solved} 次`
+        + (v.bestScore > 0 ? `，最高分 ${v.bestScore}。` : '。')),
     },
     async execute() {
       const bank = activeBank()
@@ -327,6 +358,7 @@ export async function apply(ctx, config) {
         byKind[key] = (byKind[key] ?? 0) + 1
         sum += p.difficulty
       }
+      const bestScore = Math.max(0, ...(stats.recent ?? []).map((r) => Number(r.score) || 0))
       return {
         total: bank.length,
         byKind,
@@ -334,6 +366,7 @@ export async function apply(ctx, config) {
         pending,
         played: Number(stats.played) || 0,
         solved: Number(stats.solved) || 0,
+        bestScore,
       }
     },
   }))
@@ -748,6 +781,69 @@ export async function apply(ctx, config) {
         total: bank.puzzles.length,
         rows: [],
       }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
+    name: 'turtle_score',
+    description: '一局猜中后计分：按难度、推理完成度、剩余提问、剩余提示、用时算一个总分和段位，并把战绩记下来。计分规则对玩家保密——不要解释怎么算的，只报分数、段位和这局的基本数据。',
+    parameters: {
+      title: { type: 'string', required: true, description: '这局的题目标题，用来查难度' },
+      completeness: { type: 'number', required: true, description: '推理完成度 0.5-1：0.5 基本对、0.7 主要对、0.85 很接近、1 完全说中' },
+      asked: { type: 'integer', required: true, description: '一共问了几句' },
+      budget: { type: 'integer', required: true, description: '这局的提问上限；不限次数模式传 0' },
+      hintsUsed: { type: 'integer', required: true, description: '要了几次提示' },
+      hintsAllowed: { type: 'integer', required: true, description: '这局的提示次数上限；不限提示模式传 0' },
+      seconds: { type: 'integer', required: true, description: '从开局到猜中用了多少秒' },
+      unlimitedQuestions: { type: 'boolean', description: '是不是不限提问次数模式' },
+      unlimitedHints: { type: 'boolean', description: '是不是不限提示次数模式' },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          score: { type: 'integer', required: true },
+          rank: { type: 'string', required: true },
+          stats: { type: 'string', required: true },
+        },
+      },
+      render: (_a, v) => text(`本局得分 ${v.score}　段位：${v.rank}\n${v.stats}`),
+    },
+    async execute(args) {
+      const hit = activeBank().find((p) => p.title === String(args.title || '').trim())
+      const stars = hit ? hit.difficulty : 3
+      const seconds = Math.max(0, Number(args.seconds) || 0)
+      const { score, rank } = scoreOf({
+        stars,
+        completeness: args.completeness,
+        asked: Math.max(0, Number(args.asked) || 0),
+        budget: Math.max(0, Number(args.budget) || 0),
+        hintsUsed: Math.max(0, Number(args.hintsUsed) || 0),
+        hintsAllowed: Math.max(0, Number(args.hintsAllowed) || 0),
+        seconds,
+        unlimitedQuestions: args.unlimitedQuestions === true,
+        unlimitedHints: args.unlimitedHints === true,
+      })
+      const mm = Math.floor(seconds / 60)
+      const ss = seconds % 60
+      const stats = `问了 ${args.asked} 句、用了 ${args.hintsUsed} 次提示、用时 ${mm} 分 ${ss} 秒`
+      const file = join(dataDir(), 'stats.json')
+      const saved = readJson(file, { played: 0, solved: 0, recent: [] })
+      saved.played = (Number(saved.played) || 0) + 1
+      saved.solved = (Number(saved.solved) || 0) + 1
+      saved.recent = [...(saved.recent ?? []), {
+        title: String(args.title || '').slice(0, 40),
+        solved: true,
+        asked: Number(args.asked) || 0,
+        seconds,
+        difficulty: stars,
+        score,
+        rank,
+        at: Date.now(),
+      }].slice(-200)
+      writeJson(file, saved)
+      return { score, rank, stats }
     },
   }))
 

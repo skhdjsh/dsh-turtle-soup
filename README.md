@@ -14,6 +14,7 @@
 | `turtle_snapshot` / `turtle_sync` | 导出整库 JSON、按 URL 或本地文件拉取并按「标题 + updated」合并 |
 | `turtle_online` | 对接 `server/` 里的后端：交题、看待审、审稿、拉取 |
 | `turtle_stats` | 记战绩 |
+| `turtle_score` | 猜中后计分：按难度、推理完成度、剩余提问、剩余提示、用时算总分和段位（规则不公开） |
 
 数据存在 `~/.dsh/turtle-soup/`，插件零依赖（不 import 任何 DSH 内部包）。
 

@@ -1,6 +1,6 @@
 {
   "name": "@local/dsh-turtle-soup",
-  "version": "1.4.1",
+  "version": "1.5.0",
   "private": true,
   "type": "module",
   "description": "海龟汤题库与投稿审核：本地题库、投稿码、审核入库、抽题与揭晓",
