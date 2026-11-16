@@ -2,6 +2,6 @@ url: https://github.com/skhdjsh/dsh-turtle-soup
 name: skhdjsh/dsh-turtle-soup
 category: fun
 description:
-  en: 'Turtle-soup puzzle bank: draw a puzzle, add or delete entries, and review puzzles others submit with share codes.'
-  zh: '海龟汤题库：抽题、增删题目，用投稿码收别人的题并审核入库。'
+  en: 'Turtle-soup puzzle bank: draw a puzzle, add, edit or delete entries, and review puzzles others submit with share codes.'
+  zh: '海龟汤题库：抽题，增删改题目，用投稿码收别人的题并审核入库。'
 icon: https://raw.githubusercontent.com/skhdjsh/dsh-turtle-soup/main/assets/icon-180.png
