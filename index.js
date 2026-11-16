@@ -174,6 +174,14 @@ function budgetOf(difficulty, config) {
   return base + per * Math.max(1, Math.min(5, Number(difficulty) || 3))
 }
 
+/** 按难度给提示次数：1 星 1 次，2-3 星 2 次，4-5 星 3 次。 */
+function hintsAllowedFor(difficulty) {
+  const d = Math.max(1, Math.min(5, Number(difficulty) || 3))
+  if (d === 1) return 1
+  if (d <= 3) return 2
+  return 3
+}
+
 function normalize(raw, author) {
   if (!raw || typeof raw !== 'object') return null
   const title = String(raw.title ?? '').trim()
@@ -403,13 +411,15 @@ export async function apply(ctx, config) {
 
   ctx.tools.register(defineTool({
     name: 'turtle_draw',
-    description: '抽一道题开局。可以按红/黑/清汤、本格/变格、难度区间筛选。返回汤面和汤底：汤底是给主持人看的，念出来就剧透了。',
+    description: '抽一道题开局。可以按红/黑/清汤、本格/变格、难度区间筛选，也可以开局前选不限次数模式。返回汤面和汤底（汤底给主持人看，念出来就剧透了），以及这局的提问上限和提示次数。',
     parameters: {
       soup: { type: 'string', enum: [...SOUPS], description: '汤的类型，不填就随机' },
       style: { type: 'string', enum: [...STYLES], description: '本格或变格，不填就随机' },
       minDifficulty: { type: 'integer', description: '最低星数 1-5' },
       maxDifficulty: { type: 'integer', description: '最高星数 1-5' },
       avoidTitle: { type: 'string', description: '上次抽到的标题，避免连着抽同一道' },
+      unlimitedQuestions: { type: 'boolean', description: '不限提问次数模式：这局问多少句都不算超' },
+      unlimitedHints: { type: 'boolean', description: '不限提示次数模式：提示可以随便要（题目自带几条就是几条）' },
     },
     output: {
       schema: {
@@ -420,15 +430,24 @@ export async function apply(ctx, config) {
           kind: { type: 'string', required: true },
           difficulty: { type: 'integer', required: true },
           budget: { type: 'integer', required: true },
+          questionsUnlimited: { type: 'boolean', required: true },
+          hintsUnlimited: { type: 'boolean', required: true },
+          hintsAllowed: { type: 'integer', required: true },
           face: { type: 'string', required: true },
           truth: { type: 'string', required: true },
           hints: { type: 'array', required: true, items: { type: 'string' } },
         },
       },
-      render: (_a, v) => text(
-        `《${v.title}》${stars(v.difficulty)} ${v.kind}　最多问 ${v.budget} 句\n`
-        + `汤面：${v.face}\n\n`
-        + `—— 以下是汤底，主持人看，别念 ——\n${v.truth}`),
+      render: (_a, v) => {
+        const q = v.questionsUnlimited ? '提问不限次数' : `最多问 ${v.budget} 句`
+        const h = v.hintsUnlimited
+          ? `提示不限次数（题目共 ${v.hints.length} 条）`
+          : `提示最多 ${v.hintsAllowed} 次（题目共 ${v.hints.length} 条）`
+        return text(
+          `《${v.title}》${stars(v.difficulty)} ${v.kind}　${q}　${h}\n`
+          + `汤面：${v.face}\n\n`
+          + `—— 以下是汤底，主持人看，别念 ——\n${v.truth}`)
+      },
     },
     async execute(args) {
       const all = activeBank()
@@ -447,14 +466,20 @@ export async function apply(ctx, config) {
       const stats = readJson(join(dataDir(), 'stats.json'), { played: 0, solved: 0 })
       stats.played = (Number(stats.played) || 0) + 1
       writeJson(join(dataDir(), 'stats.json'), stats)
+      const unlimitedQ = args.unlimitedQuestions === true
+      const unlimitedH = args.unlimitedHints === true
+      const hints = p.hints ?? []
       return {
         title: p.title,
         kind: `${p.soup}·${p.style}`,
         difficulty: p.difficulty,
-        budget: budgetOf(p.difficulty, cfg),
+        budget: unlimitedQ ? 0 : budgetOf(p.difficulty, cfg),
+        questionsUnlimited: unlimitedQ,
+        hintsUnlimited: unlimitedH,
+        hintsAllowed: unlimitedH ? 0 : Math.min(hintsAllowedFor(p.difficulty), Math.max(1, hints.length)),
         face: p.face,
         truth: p.truth,
-        hints: p.hints ?? [],
+        hints,
       }
     },
   }))
