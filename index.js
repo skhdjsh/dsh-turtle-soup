@@ -1062,7 +1062,7 @@ export async function apply(ctx, config) {
     parameters: {
       action: { type: 'string', required: true, enum: ['pull', 'approve', 'reject'], description: 'pull 拉取，approve 通过，reject 驳回' },
       provider: { type: 'string', enum: ['github', 'gitee'], description: '用哪个平台，默认 github' },
-      label: { type: 'string', description: 'pull 时按这个标签筛 issue，默认用配置里的 issueLabel' },
+      label: { type: 'string', description: 'pull 时按这个标签筛 issue，默认用配置里的 issueLabel；填 * 表示不筛（Gitee 没建标签时用）' },
       id: { type: 'string', description: 'approve/reject 时的待审编号' },
       reason: { type: 'string', description: 'reject 时写进 issue 的理由' },
     },
@@ -1081,7 +1081,9 @@ export async function apply(ctx, config) {
       const provider = args.provider === 'gitee' ? 'gitee' : 'github'
       const pending = loadPending()
       if (args.action === 'pull') {
-        const label = String(args.label || cfg.issueLabel || 'turtle-submission')
+        const rawLabel = args.label !== undefined ? args.label : cfg.issueLabel
+        let label = String(rawLabel ?? 'turtle-submission').trim()
+        if (label === '*' || label === '-') label = '' // 不按标签筛（Gitee 没建标签时用）
         const issues = await listIssues(provider, label)
         const bank = activeBank()
         const rows = []
