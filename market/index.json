@@ -52,12 +52,11 @@
       "versions": [
         {
           "version": "1.2.0",
-          "publishTimestamp": 1794853982,
+          "publishTimestamp": 1794853993,
           "source": {
             "type": "git",
             "url": "https://github.com/skhdjsh/dsh-turtle-soup",
-            "commit": "f1b27a6655f91d8d52a4c126f165a5e949b83e16",
-            "path": "dsh-turtle-soup"
+            "commit": "188ea4896ad2bc4b7dbbf4058f0d11ba7b30855b"
           },
           "engines": {
             "dsh": ">=0.2.2-rc.3"

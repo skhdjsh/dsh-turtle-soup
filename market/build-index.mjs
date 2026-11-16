@@ -27,7 +27,7 @@ if (args.includes('--help') || args.includes('-h')) {
   --version <版本>       默认取 package.json 的 version
   --git-url <仓库地址>    https 的仓库地址，如 https://github.com/you/dsh-turtle-soup
   --commit <sha>         必填（git 模式）：40 位小写 commit
-  --path <目录>          包在仓库里的相对目录，默认 dsh-turtle-soup
+  --path <目录>          包在仓库里的相对目录；仓库根就是插件包时不要传
   --npm                  走 npm 模式，source 为 {type:'npm'}
   --registry <地址>      npm 模式下的自定义 registry
   --timestamp <秒>       发布时间戳，默认现在
@@ -62,7 +62,7 @@ const source = has('npm')
         type: 'git',
         url: url.replace(/\.git$/, ''),
         commit,
-        path: flag('path', 'dsh-turtle-soup'),
+        ...(flag('path', '') ? { path: flag('path', '') } : {}),
       }
     })()
 
