@@ -1,0 +1,25 @@
+name: 投稿一道海龟汤
+description: 贴一行 TS1 投稿码，作者审核通过后会收录进题库
+title: '[投稿] '
+labels: ['turtle-submission']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        先在 DSH 里让插件把你的题导出成投稿码（`turtle_export`），
+        或者按「海龟汤题库」插件文档里的格式手动拼——总之是一行以 `TS1.` 开头的文本。
+        把它粘到下面即可，别改中间任何字符，校验和会失败。
+  - type: textarea
+    id: code
+    attributes:
+      label: 投稿码
+      description: 以 TS1. 开头的一整行
+      render: text
+      placeholder: TS1.1a2b3c4d.eyJ0aXRsZSI6...
+    validations:
+      required: true
+  - type: input
+    id: note
+    attributes:
+      label: 附言（可选）
+      description: 想跟作者说的话
