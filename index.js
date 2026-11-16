@@ -419,7 +419,7 @@ export async function apply(ctx, config) {
       maxDifficulty: { type: 'integer', description: '最高星数 1-5' },
       avoidTitle: { type: 'string', description: '上次抽到的标题，避免连着抽同一道' },
       unlimitedQuestions: { type: 'boolean', description: '不限提问次数模式：这局问多少句都不算超' },
-      unlimitedHints: { type: 'boolean', description: '不限提示次数模式：提示可以随便要（题目自带几条就是几条）' },
+      unlimitedHints: { type: 'boolean', description: '不限提示次数模式：提示可以随便要，题目自带的用完后主持人按汤底现说' },
     },
     output: {
       schema: {
