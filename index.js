@@ -230,11 +230,11 @@ function rankOf(score, stars, info = {}) {
   if (info.unlimitedQuestions === true && asked >= 60) return '永动机' // 不限次数还能问 60 句
   if (asked === 0) return '张嘴就来'                        // 一句没问就猜中
   if (tb > 0 && seconds >= tb * 2) return '文火慢炖'         // 超时一倍还硬推出来
+  if (score < 40) return '重在参与'                          // 低分彩蛋：垫底也有名字
   if (c <= 0.5 && allHints && qb > 0 && asked >= qb * 0.9) return '白给' // 蒙对 + 提示用光 + 问满
   if (c <= 0.5 && fast) return '鱼的直觉'                    // 蒙对而且极快
   if (c >= 0.85 && allHints) return '原汤化原食'             // 提示全用光，还是完整推出来了
   if (d === 1 && score >= 95) return '一星神童'              // 1 星题打出接近满分
-  if (score < 40) return '重在参与'                          // 低分彩蛋
 
   if (score >= 120) return '老饕'
   if (score >= 90) return '熟客'
