@@ -98,7 +98,7 @@ Gitee 用同一套工具：`provider=gitee`，再配上 `giteeRepo`；Gitee 不�
 └── stats.json    战绩
 ```
 
-拷贝这三个文件就是备份；删掉整个目录会重新播种内置的 13 道题。
+拷贝这三个文件就是备份；删掉整个目录会重新播种内置的 100 道题（`bank-seed.json` 随包发布：22 道是网络流传的经典题重写，51 道是过审的生成题，其余是内置题与大肥鱼题库）。
 
 ## 常见问题
 
@@ -112,6 +112,7 @@ Gitee 用同一套工具：`provider=gitee`，再配上 `giteeRepo`；Gitee 不�
 ## 目录
 
 - `index.js` — 插件本体（工具注册、题库读写、合并、在线投稿）
+- `bank-seed.json` — 首次运行铺开的 100 道题
 - `cordis.patch.yml` — 插件行与默认配置
 - `locale/{zh,en}.json` — 插件页标题/描述
 - `docs/DETAIL.md` — 插件详情页正文

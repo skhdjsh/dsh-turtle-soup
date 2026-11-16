@@ -273,10 +273,24 @@ function normalize(raw, author) {
   }
 }
 
+function readSeedFile() {
+  try {
+    const file = new URL('./bank-seed.json', import.meta.url)
+    const data = JSON.parse(readFileSync(file, 'utf8'))
+    const list = Array.isArray(data) ? data : data?.puzzles
+    return Array.isArray(list) ? list : []
+  } catch {
+    return []
+  }
+}
+
 function seedBank() {
-  const puzzles = SEED.map(([title, soup, style, difficulty, face, truth, hints]) =>
-    normalize({ title, soup, style, difficulty, face, truth, hints }, '内置'))
-  const data = { version: 2, puzzles: puzzles.filter(Boolean) }
+  const fromFile = readSeedFile()
+  const puzzles = fromFile.length
+    ? fromFile.map((p) => normalize(p, p?.author || '内置')).filter(Boolean)
+    : SEED.map(([title, soup, style, difficulty, face, truth, hints]) =>
+        normalize({ title, soup, style, difficulty, face, truth, hints }, '内置')).filter(Boolean)
+  const data = { version: 2, puzzles }
   writeJson(bankPath(), data)
   return data
 }
