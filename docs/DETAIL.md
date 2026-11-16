@@ -57,6 +57,12 @@ submitToken: ''    # 投稿令牌（发给朋友，只能交题进待审）
 adminToken: ''     # 管理员令牌（自己用，能审）
 ```
 
+**令牌建议放 `~/.dsh/turtle-soup/tokens.json`**（插件优先读它，这个文件不在仓库里），而不是写进 `cordis.patch.yml`——后者随仓库公开：
+
+```json
+{ "adminToken": "…", "submitToken": "…" }
+```
+
 调用时传 `serverUrl` / `token` 可临时覆盖。改完 **重启 DSH** 生效。
 
 ## 数据与备份

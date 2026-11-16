@@ -154,6 +154,15 @@ function pendingPath() {
   return join(dataDir(), 'pending.json')
 }
 
+/** 令牌优先从本机私有文件读，避免写进随仓库公开的 cordis.patch.yml。 */
+function readTokens() {
+  try {
+    return JSON.parse(readFileSync(join(dataDir(), 'tokens.json'), 'utf8'))
+  } catch {
+    return {}
+  }
+}
+
 function stars(n) {
   const v = Math.max(1, Math.min(5, Number(n) || 3))
   return '★'.repeat(v) + '☆'.repeat(5 - v)
@@ -910,7 +919,14 @@ export async function apply(ctx, config) {
         throw new Error('没配后端地址：在插件 config 里填 serverUrl（或者调用时传 serverUrl）')
       }
       const needAdmin = args.action === 'pending' || args.action === 'review'
-      const token = String(args.token || (needAdmin ? adminToken : submitToken) || '').trim()
+      const local = readTokens()
+      const token = String(
+        args.token
+          || (needAdmin
+            ? (adminToken || local.adminToken)
+            : (submitToken || local.submitToken))
+          || '',
+      ).trim()
       if (!token && args.action !== 'pull') {
         throw new Error(needAdmin
           ? '没配管理员令牌：在插件 config 里填 adminToken（或者调用时传 token）'

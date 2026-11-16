@@ -27,12 +27,18 @@
 `cordis.patch.yml` 的 `config`：
 
 ```yaml
-serverUrl: ''      # 自建后端地址
-submitToken: ''    # 投稿令牌（发给朋友）
-adminToken: ''     # 管理员令牌（自己用）
+serverUrl: ''      # 自建后端地址（不敏感，放这里没问题）
+submitToken: ''    # 投稿令牌（发给朋友）——建议留空，见下
+adminToken: ''     # 管理员令牌（自己用）——建议留空，见下
 ```
 
-改完重启 DSH 生效。注意配置是明文，且重装/更新插件会覆盖，更新前先备份这三个值。
+**两个令牌别写进这个文件**：它跟着仓库公开，写进去就等于公开。插件会优先读本机私有文件 `~/.dsh/turtle-soup/tokens.json`（不在仓库里）：
+
+```json
+{ "adminToken": "…", "submitToken": "…" }
+```
+
+配置里那两项只是兜底；调用时传 `token` 也能临时覆盖。改完重启 DSH 生效。
 
 ## 数据与备份
 
