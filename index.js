@@ -200,24 +200,41 @@ function scoreOf({ stars, completeness, asked, budget, hintsUsed, hintsAllowed,
   const timeBudget = 90 + 60 * d                      // 秒：1★ 150 → 5★ 390
   const T = clamp(0.90, 1.08, 1.08 - 0.18 * clamp(0, 1, (Number(seconds) || 0) / timeBudget))
   const score = Math.round(100 * D * C * Q * H * T)
-  return { score, rank: rankOf(score, d, { asked, seconds, timeBudget }) }
+  return {
+    score,
+    rank: rankOf(score, d, {
+      asked, seconds, timeBudget, questionBudget: budget,
+      hintsUsed, hintsAllowed, completeness: C, unlimitedQuestions,
+    }),
+  }
 }
 
 /**
- * 段位：五个正式档 + 四个彩蛋。
+ * 段位：五个正式档 + 一堆彩蛋。
  * 彩蛋按优先级判定，只有撞上了才出现，玩家得自己发现。
  */
 function rankOf(score, stars, info = {}) {
   const d = Number(stars) || 3
   const asked = Number(info.asked) || 0
   const seconds = Number(info.seconds) || 0
-  const budget = Number(info.timeBudget) || 0
+  const tb = Number(info.timeBudget) || 0
+  const qb = Number(info.questionBudget) || 0
+  const used = Number(info.hintsUsed) || 0
+  const allowed = Number(info.hintsAllowed) || 0
+  const c = Number(info.completeness) || 0
+  const allHints = allowed > 0 && used >= allowed
+  const fast = tb > 0 && seconds <= tb * 0.3
 
-  if (d === 5 && score >= 170) return '汤神'
-  if (d === 4 && score >= 170) return '半步汤神'          // 彩蛋：4 星做到汤神的分
-  if (asked === 0) return '张嘴就来'                       // 彩蛋：一句没问就猜中
-  if (budget > 0 && seconds >= budget * 2) return '文火慢炖' // 彩蛋：超时一倍还硬推出来
-  if (d === 1 && score >= 95) return '一星神童'            // 彩蛋：1 星题打出接近满分的表现
+  if (d === 5 && score >= 170) return '汤神'                // 5 星 + 够分
+  if (d === 4 && score >= 170) return '半步汤神'             // 4 星做到汤神的分
+  if (info.unlimitedQuestions === true && asked >= 60) return '永动机' // 不限次数还能问 60 句
+  if (asked === 0) return '张嘴就来'                        // 一句没问就猜中
+  if (tb > 0 && seconds >= tb * 2) return '文火慢炖'         // 超时一倍还硬推出来
+  if (c <= 0.5 && allHints && qb > 0 && asked >= qb * 0.9) return '白给' // 蒙对 + 提示用光 + 问满
+  if (c <= 0.5 && fast) return '鱼的直觉'                    // 蒙对而且极快
+  if (c >= 0.85 && allHints) return '原汤化原食'             // 提示全用光，还是完整推出来了
+  if (d === 1 && score >= 95) return '一星神童'              // 1 星题打出接近满分
+  if (score < 40) return '重在参与'                          // 低分彩蛋
 
   if (score >= 120) return '老饕'
   if (score >= 90) return '熟客'
