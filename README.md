@@ -10,6 +10,7 @@
 | `turtle_bank` / `turtle_list` / `turtle_get` | 概览、分页、看单题（不返回汤底） |
 | `turtle_add` / `turtle_edit` / `turtle_delete` | 加题、改题、删题（墓碑删除，同步时会传播） |
 | `turtle_export` / `turtle_submit` / `turtle_review` | 导出投稿码、收进待审、`list`/`view` 看队列与答案、通过或驳回 |
+| `turtle_issues` | 把 GitHub / Gitee 的 Issue 当投稿箱：`pull` 拉取、`approve` 通过并关 issue、`reject` 驳回 |
 | `turtle_snapshot` / `turtle_sync` | 导出整库 JSON、按 URL 或本地文件拉取并按「标题 + updated」合并 |
 | `turtle_online` | 对接 `server/` 里的后端：交题、看待审、审稿、拉取 |
 | `turtle_stats` | 记战绩 |
@@ -39,6 +40,26 @@ adminToken: ''     # 管理员令牌（自己用）——建议留空，见下
 ```
 
 配置里那两项只是兜底；调用时传 `token` 也能临时覆盖。改完重启 DSH 生效。
+
+## 在线投稿：Issue 当投稿箱
+
+不需要服务器，也不需要域名：
+
+1. 朋友在你仓库提一个 issue，正文贴一行 `TS1.…` 投稿码（`turtle_export` 导出的那种），打上 `turtle-submission` 标签；
+2. 你调 `turtle_issues`，`action=pull`、`provider=github` → 码解析后进待审；
+3. 审核时用 `turtle_review action=view` 看汤底；
+4. `turtle_issues action=approve id=…` → 入库，并自动关闭 issue、回一句「已收录」；`action=reject` 则关闭并写明理由。
+
+Gitee 完全一样，`provider=gitee`，再配 `giteeRepo`。
+
+**读 issue 不需要令牌，关 issue 需要。** 令牌放 `~/.dsh/turtle-soup/tokens.json`：
+
+```json
+{ "githubToken": "…", "giteeToken": "…" }
+```
+
+- GitHub：https://github.com/settings/tokens 建 fine-grained token，只授权这个仓库、勾 `Issues: Read and write`
+- Gitee：设置 → 私人令牌，勾 `issues`
 
 ## 数据与备份
 

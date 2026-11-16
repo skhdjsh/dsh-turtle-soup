@@ -90,6 +90,24 @@ adminToken: ''     # 管理员令牌（自己用，能审）
 | `改完没过校验` | 汤面 5-1500 字、汤底 10-3000 字、类型只能红/黑/清 + 本格/变格 |
 | `拉取失败：HTTP 404` | 直链不对；GitHub 要用 `raw.githubusercontent.com` 的地址，不是仓库网页地址 |
 
+## 在线投稿：Issue 当投稿箱
+
+不想靠人肉传码，可以让朋友在你仓库提 issue（GitHub 或 Gitee 都行），无需服务器：
+
+1. issue 正文贴一行 `TS1.…` 投稿码，打上 `turtle-submission` 标签；
+2. `turtle_issues` `action=pull` `provider=github`（或 `gitee`）→ 码解析后进待审；
+3. 审核用 `turtle_review action=view` 看汤底；
+4. `turtle_issues action=approve id=…` → 入库 + 自动关闭 issue + 回一句「已收录」；`action=reject` → 关闭并写理由。
+
+**读 issue 不需要令牌，关 issue 需要。** 令牌放 `~/.dsh/turtle-soup/tokens.json`（不在仓库里）：
+
+```json
+{ "githubToken": "…", "giteeToken": "…" }
+```
+
+- GitHub：Settings → Developer settings → Personal access tokens，只授权这个仓库、勾 `Issues: Read and write`
+- Gitee：设置 → 私人令牌，勾 `issues`
+
 ## 限制（如实说明）
 
 - **投稿码要靠人传**：微信/邮件/任何聊天工具都行，没有内置点对点通道。

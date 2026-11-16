@@ -2,9 +2,13 @@
     - id: turtle-soup
       name: '@local/dsh-turtle-soup'
       config:
-        # 自建后端（turtle-server/）的地址；留空就只能在调用时传 serverUrl
+        # 自建后端（server/）的地址；留空就只能在调用时传 serverUrl
         serverUrl: ''
-        # 发给朋友的投稿令牌：只能交题进待审
+        # 后端令牌建议放 ~/.dsh/turtle-soup/tokens.json，而不是这里（本文件随仓库公开）
         submitToken: ''
-        # 你自己的管理员令牌：能看待审、能通过/驳回
         adminToken: ''
+        # 投稿箱：issue 所属仓库（owner/repo）
+        githubRepo: 'skhdjsh/dsh-turtle-soup'
+        giteeRepo: ''
+        # 只拉带这个标签的 issue
+        issueLabel: 'turtle-submission'

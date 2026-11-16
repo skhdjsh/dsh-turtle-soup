@@ -973,4 +973,188 @@ export async function apply(ctx, config) {
       return { done: `已把服务端通过审核的 ${(r.puzzles ?? []).length} 道拉下来合并。`, rows: [], merged }
     },
   }))
+
+  // ---------------- 投稿箱：GitHub / Gitee Issues ----------------
+
+  function issueConfig(provider) {
+    const tk = readTokens()
+    if (provider === 'gitee') {
+      const repo = String(cfg.giteeRepo || '').trim()
+      if (!repo) throw new Error('没配 giteeRepo（形如 owner/repo），填上再用')
+      return { repo, token: String(cfg.giteeToken || tk.giteeToken || '').trim() }
+    }
+    if (provider === 'github') {
+      const repo = String(cfg.githubRepo || '').trim()
+      if (!repo) throw new Error('没配 githubRepo（形如 owner/repo），填上再用')
+      return { repo, token: String(cfg.githubToken || tk.githubToken || '').trim() }
+    }
+    throw new Error('provider 只能是 github 或 gitee')
+  }
+
+  const CODE_RE = /TS1\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+/g
+
+  async function listIssues(provider, label) {
+    const { repo, token } = issueConfig(provider)
+    if (provider === 'gitee') {
+      const qs = ['state=open', 'per_page=50']
+      if (label) qs.push(`labels=${encodeURIComponent(label)}`)
+      if (token) qs.push(`access_token=${encodeURIComponent(token)}`)
+      const res = await fetch(`https://gitee.com/api/v5/repos/${repo}/issues?${qs.join('&')}`)
+      if (!res.ok) throw new Error(`Gitee 拉取失败：HTTP ${res.status}`)
+      const arr = await res.json()
+      return (Array.isArray(arr) ? arr : []).map((it) => ({
+        provider, number: it.number, title: it.title || '', body: it.body || '',
+        user: it.user?.login || '',
+      }))
+    }
+    const qs = ['state=open', 'per_page=50']
+    if (label) qs.push(`labels=${encodeURIComponent(label)}`)
+    const headers = { accept: 'application/vnd.github+json', 'user-agent': 'dsh-turtle-soup' }
+    if (token) headers.authorization = `Bearer ${token}`
+    const res = await fetch(`https://api.github.com/repos/${repo}/issues?${qs.join('&')}`, { headers })
+    if (!res.ok) throw new Error(`GitHub 拉取失败：HTTP ${res.status}`)
+    const arr = await res.json()
+    return (Array.isArray(arr) ? arr : [])
+      .filter((it) => !it.pull_request)
+      .map((it) => ({
+        provider, number: it.number, title: it.title || '', body: it.body || '',
+        user: it.user?.login || '',
+      }))
+  }
+
+  async function closeIssue(provider, number, comment) {
+    const { repo, token } = issueConfig(provider)
+    if (!token) {
+      throw new Error(`没配 ${provider} 令牌，关不了 issue（在 tokens.json 里加 ${provider}Token）`)
+    }
+    const jsonHeaders = { 'content-type': 'application/json' }
+    if (provider === 'gitee') {
+      const t = encodeURIComponent(token)
+      const closed = await fetch(`https://gitee.com/api/v5/repos/${repo}/issues/${number}?access_token=${t}`, {
+        method: 'PATCH', headers: jsonHeaders, body: JSON.stringify({ state: 'closed' }),
+      })
+      if (!closed.ok) throw new Error(`Gitee 关闭失败：HTTP ${closed.status}`)
+      if (comment) {
+        await fetch(`https://gitee.com/api/v5/repos/${repo}/issues/${number}/comments?access_token=${t}`, {
+          method: 'POST', headers: jsonHeaders, body: JSON.stringify({ body: comment }),
+        })
+      }
+      return
+    }
+    const headers = {
+      accept: 'application/vnd.github+json', authorization: `Bearer ${token}`,
+      'user-agent': 'dsh-turtle-soup', ...jsonHeaders,
+    }
+    const closed = await fetch(`https://api.github.com/repos/${repo}/issues/${number}`, {
+      method: 'PATCH', headers, body: JSON.stringify({ state: 'closed' }),
+    })
+    if (!closed.ok) throw new Error(`GitHub 关闭失败：HTTP ${closed.status}`)
+    if (comment) {
+      await fetch(`https://api.github.com/repos/${repo}/issues/${number}/comments`, {
+        method: 'POST', headers, body: JSON.stringify({ body: comment }),
+      })
+    }
+  }
+
+  ctx.tools.register(defineTool({
+    name: 'turtle_issues',
+    description: '拿 GitHub 或 Gitee 的 Issue 当投稿箱：pull 把带标签的 issue 里的 TS1 投稿码收进待审；approve 通过并关掉 issue；reject 驳回并关掉。读 issue 不需要令牌，关 issue 需要（tokens.json 里的 githubToken / giteeToken）。',
+    parameters: {
+      action: { type: 'string', required: true, enum: ['pull', 'approve', 'reject'], description: 'pull 拉取，approve 通过，reject 驳回' },
+      provider: { type: 'string', enum: ['github', 'gitee'], description: '用哪个平台，默认 github' },
+      label: { type: 'string', description: 'pull 时按这个标签筛 issue，默认用配置里的 issueLabel' },
+      id: { type: 'string', description: 'approve/reject 时的待审编号' },
+      reason: { type: 'string', description: 'reject 时写进 issue 的理由' },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          done: { type: 'string', required: true },
+          rows: { type: 'array', required: true, items: { type: 'string' } },
+        },
+      },
+      render: (_a, v) => text(v.done + (v.rows.length ? `\n${v.rows.join('\n')}` : '')),
+    },
+    async execute(args) {
+      const provider = args.provider === 'gitee' ? 'gitee' : 'github'
+      const pending = loadPending()
+      if (args.action === 'pull') {
+        const label = String(args.label || cfg.issueLabel || 'turtle-submission')
+        const issues = await listIssues(provider, label)
+        const bank = activeBank()
+        const rows = []
+        let added = 0
+        for (const it of issues) {
+          const codes = String(it.body).match(CODE_RE) || []
+          if (!codes.length) {
+            rows.push(`#${it.number} 里没有投稿码，跳过`)
+            continue
+          }
+          for (const code of codes) {
+            let puzzle
+            try {
+              puzzle = normalize(decodeCode(code), it.user || '匿名投稿')
+            } catch (err) {
+              rows.push(`#${it.number} 的码无效：${err.message}`)
+              continue
+            }
+            if (!puzzle) {
+              rows.push(`#${it.number} 的码内容没过校验`)
+              continue
+            }
+            if (bank.some((p) => p.title === puzzle.title)
+              || pending.items.some((x) => x.puzzle.title === puzzle.title)) {
+              rows.push(`#${it.number}《${puzzle.title}》重复，跳过`)
+              continue
+            }
+            const item = {
+              id: idOf(`${puzzle.title}|${it.provider}|${it.number}|${Date.now()}`),
+              puzzle,
+              submitter: it.user || '匿名投稿',
+              note: `来自 ${it.provider} #${it.number}`,
+              at: Date.now(),
+              issue: { provider: it.provider, number: it.number },
+            }
+            pending.items.push(item)
+            added += 1
+            rows.push(`#${it.number}《${puzzle.title}》进待审（${item.id}）`)
+          }
+        }
+        writeJson(pendingPath(), pending)
+        return { done: `${provider} 上有 ${issues.length} 个 issue，新增 ${added} 条待审。`, rows }
+      }
+
+      const key = String(args.id ?? '').trim()
+      if (!key) throw new Error('要给待审编号')
+      const idx = pending.items.findIndex((x) => x.id === key || x.puzzle.title === key)
+      if (idx < 0) throw new Error('待审里没有这条')
+      const item = pending.items[idx]
+      const bank = loadBank()
+      if (args.action === 'approve') {
+        if (bank.puzzles.some((p) => p.title === item.puzzle.title)) throw new Error('题库里已有同名题目')
+        bank.puzzles.push(item.puzzle)
+        writeJson(bankPath(), bank)
+        pending.items.splice(idx, 1)
+        writeJson(pendingPath(), pending)
+        if (item.issue) {
+          await closeIssue(item.issue.provider, item.issue.number, `已收录《${item.puzzle.title}》，谢谢！`)
+        }
+        return {
+          done: `通过了《${item.puzzle.title}》，已入库。`,
+          rows: item.issue ? [`已关闭 ${item.issue.provider} #${item.issue.number}`] : [],
+        }
+      }
+      pending.items.splice(idx, 1)
+      writeJson(pendingPath(), pending)
+      if (item.issue) {
+        await closeIssue(item.issue.provider, item.issue.number, `驳回：${args.reason || '未通过审核'}`)
+      }
+      return {
+        done: `驳回了《${item.puzzle.title}》。`,
+        rows: item.issue ? [`已关闭 ${item.issue.provider} #${item.issue.number}`] : [],
+      }
+    },
+  }))
 }
