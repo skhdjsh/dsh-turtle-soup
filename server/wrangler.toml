@@ -1,0 +1,9 @@
+name = "turtle-soup"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+# 跑一次 `npx wrangler d1 create turtle-soup`，把它打印的 database_id 填到这里
+[[d1_databases]]
+binding = "DB"
+database_name = "turtle-soup"
+database_id = "在这里填 database_id"

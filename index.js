@@ -487,6 +487,61 @@ export async function apply(ctx, config) {
   }))
 
   ctx.tools.register(defineTool({
+    name: 'turtle_edit',
+    description: '改一道已入库的题：标题、汤面、汤底、类型、难度、提示都能改，不用删了重加。改完 updated 会更新，同步时能覆盖别处的旧版。',
+    parameters: {
+      key: { type: 'string', required: true, description: '要改的题：序号或标题' },
+      title: { type: 'string', description: '新标题；不能和别的题重名' },
+      soup: { type: 'string', enum: [...SOUPS], description: '新的汤类型' },
+      style: { type: 'string', enum: [...STYLES], description: '新的格局' },
+      difficulty: { type: 'integer', description: '新的难度 1-5' },
+      face: { type: 'string', description: '新的汤面' },
+      truth: { type: 'string', description: '新的汤底' },
+      hints: { type: 'array', items: { type: 'string' }, description: '替换提示，最多 3 条；传空数组表示清空' },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          title: { type: 'string', required: true },
+          changed: { type: 'array', required: true, items: { type: 'string' } },
+        },
+      },
+      render: (_a, v) => text(
+        v.changed.length
+          ? `改好了：《${v.title}》，动了 ${v.changed.join('、')}。`
+          : `《${v.title}》没变（没给要改的字段）。`),
+    },
+    async execute(args) {
+      const bank = loadBank()
+      const active = activeBank()
+      const hit = findByKey(active, args.key)
+      if (!hit) throw new Error('没找到，用 turtle_list 看序号')
+      const target = bank.puzzles.find((p) => p.title === hit.puzzle.title)
+      const next = { ...target }
+      const changed = []
+      for (const field of ['title', 'soup', 'style', 'difficulty', 'face', 'truth', 'hints']) {
+        if (args[field] !== undefined) {
+          next[field] = args[field]
+          changed.push(field)
+        }
+      }
+      const q = normalize(next, next.author)
+      if (!q) throw new Error('改完没过校验：检查标题长度、类型、汤面/汤底字数')
+      if (q.title !== target.title && bank.puzzles.some((p) => p.title === q.title)) {
+        throw new Error(`新标题《${q.title}》和已有题目重名`)
+      }
+      q.created = target.created || q.created
+      q.updated = Date.now()
+      q.deleted = false
+      bank.puzzles[bank.puzzles.indexOf(target)] = q
+      writeJson(bankPath(), bank)
+      return { title: q.title, changed }
+    },
+  }))
+
+  ctx.tools.register(defineTool({
     name: 'turtle_delete',
     description: '从题库删掉一道题（管理操作）。用序号或标题指定。',
     parameters: {
@@ -588,7 +643,7 @@ export async function apply(ctx, config) {
     name: 'turtle_review',
     description: '审投稿：列出待审、通过入库、或驳回。通过后才进题库。',
     parameters: {
-      action: { type: 'string', required: true, enum: ['list', 'approve', 'reject'], description: 'list 看队列，approve 通过，reject 驳回' },
+      action: { type: 'string', required: true, enum: ['list', 'view', 'approve', 'reject'], description: 'list 看队列，view 看某条的汤面和汤底，approve 通过，reject 驳回' },
       id: { type: 'string', description: 'approve/reject 时的待审编号或标题' },
       reason: { type: 'string', description: '驳回理由' },
     },
@@ -615,6 +670,24 @@ export async function apply(ctx, config) {
         const rows = pending.items.map((it) =>
           `${it.id} 《${it.puzzle.title}》${stars(it.puzzle.difficulty)} ${it.puzzle.soup}·${it.puzzle.style}　by ${it.submitter}`)
         return { done: '待审队列：', pending: pending.items.length, total: bank.puzzles.length, rows }
+      }
+      if (action === 'view') {
+        const key = String(args.id ?? '').trim()
+        if (!key) throw new Error('要指定待审编号或标题')
+        const it = pending.items.find((x) => x.id === key || x.puzzle.title === key)
+        if (!it) throw new Error('待审里没有这条')
+        const p = it.puzzle
+        return {
+          done: `待审 ${it.id}《${p.title}》${stars(p.difficulty)} ${p.soup}·${p.style}　by ${it.submitter}`,
+          pending: pending.items.length,
+          total: bank.puzzles.length,
+          rows: [
+            `汤面：${p.face}`,
+            `汤底：${p.truth}`,
+            `提示：${(p.hints ?? []).length ? p.hints.join(' / ') : '（无）'}`,
+            ...(it.note ? [`附言：${it.note}`] : []),
+          ],
+        }
       }
       const key = String(args.id ?? '').trim()
       if (!key) throw new Error('要指定待审编号或标题')
@@ -719,13 +792,32 @@ export async function apply(ctx, config) {
     return { added, updated, removed, skipped, conflicts: conflicts.slice(0, 10) }
   }
 
+  function parseBankJson(text) {
+    let data
+    try {
+      data = JSON.parse(text)
+    } catch (err) {
+      throw new Error(`题库内容不是合法 JSON：${err.message}`)
+    }
+    const list = Array.isArray(data) ? data : data?.puzzles
+    if (!Array.isArray(list)) throw new Error('不是题库文件（要 {version,puzzles} 或数组）')
+    return list
+  }
+
   async function fetchBank(url) {
     const res = await fetch(url, { headers: { accept: 'application/json' } })
     if (!res.ok) throw new Error(`拉取失败：HTTP ${res.status}`)
-    const data = await res.json()
-    const list = Array.isArray(data) ? data : data?.puzzles
-    if (!Array.isArray(list)) throw new Error('这个地址不是题库文件（要 {version,puzzles} 或数组）')
-    return list
+    return parseBankJson(await res.text())
+  }
+
+  function readBankFile(path) {
+    let text
+    try {
+      text = readFileSync(path, 'utf8')
+    } catch (err) {
+      throw new Error(`读不到这个文件：${err.message}`)
+    }
+    return parseBankJson(text)
   }
 
   ctx.tools.register(defineTool({
@@ -754,9 +846,10 @@ export async function apply(ctx, config) {
 
   ctx.tools.register(defineTool({
     name: 'turtle_sync',
-    description: '从一个直链拉题库并合并进本地：按标题对齐，远端 updated 更晚才覆盖，删除会传播。返回新增/更新/移除/跳过/冲突数量。',
+    description: '把别处的一份题库并进本地：给直链就拉取，给本地文件路径就读文件。按标题对齐，远端 updated 更晚才覆盖，删除会传播。返回新增/更新/移除/跳过/冲突数量。',
     parameters: {
-      url: { type: 'string', required: true, description: '题库 JSON 的直链（Gist raw、GitHub raw、网盘直链都行）' },
+      url: { type: 'string', description: '题库 JSON 的直链（Gist raw、GitHub raw、网盘直链）' },
+      file: { type: 'string', description: '或者给一个本地 json 路径；url 和 file 二选一' },
     },
     output: {
       schema: {
@@ -776,7 +869,8 @@ export async function apply(ctx, config) {
         + (v.conflicts.length ? `\n本地更新更晚、已保留本地：${v.conflicts.join('、')}` : '')),
     },
     async execute(args) {
-      const list = await fetchBank(args.url)
+      if (!args.url && !args.file) throw new Error('要给 url 或 file 其中一个')
+      const list = args.file ? readBankFile(String(args.file)) : await fetchBank(String(args.url))
       const r = mergeRemote(list)
       return { ...r, total: activeBank().length }
     },
