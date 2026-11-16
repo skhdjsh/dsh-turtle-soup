@@ -191,7 +191,7 @@ const clamp = (lo, hi, v) => Math.max(lo, Math.min(hi, Number.isFinite(v) ? v : 
 function scoreOf({ stars, completeness, asked, budget, hintsUsed, hintsAllowed,
   seconds, unlimitedQuestions, unlimitedHints }) {
   const d = clamp(1, 5, Number(stars) || 3)
-  const D = 1 + 0.20 * (d - 1)                       // 1★1.00 → 5★1.80
+  const D = 1 + 0.25 * (d - 1)                       // 1★1.00 → 5★2.00
   const C = clamp(0.5, 1, Number(completeness))       // 推理完成度（蒙对也算，下限 0.5）
   const Q = unlimitedQuestions
     ? 0.90
