@@ -35,7 +35,7 @@
 
 ### 评分与下架
 
-一局结束后用 `turtle_rate` 收评价：
+一局结束后用 `turtle_rate` 收评价。计分结束（`turtle_score` 或带 `completeness` 的 `turtle_game end`）会**自动请玩家打分**，玩家回一句「8 赞」就直接调 `turtle_rate` 记下。
 
 - **汤面评分**：1–10 分，默认 5 分；
 - **赞 / 踩**：可选，不投也行；

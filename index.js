@@ -71,6 +71,7 @@ const MAX_FACE = 1500
 const MAX_TRUTH = 3000
 const MAX_HINTS = 3
 const CODE_PREFIX = 'TS1.'
+const RATE_PROMPT = '给这道汤的汤面打个分吧（1-10，默认 5），想点赞/踩可以一起说，比如「8 赞」；不想评就说「跳过」。'
 
 const SEED = [
   ['海边的海龟汤', '红汤', '本格', 4,
@@ -970,7 +971,7 @@ export async function apply(ctx, config) {
 
   const scoreTool = defineTool({
     name: 'turtle_score',
-    description: '一局猜中后计分：按难度、推理完成度、剩余提问、剩余提示、用时算一个总分和段位，并把战绩记下来。计分规则对玩家保密——不要解释怎么算的，只报分数、段位和这局的基本数据。',
+    description: '一局猜中后计分：按难度、推理完成度、剩余提问、剩余提示、用时算一个总分和段位，并把战绩记下来。结尾会自动请玩家给汤面打分——玩家回 1-10 分或「赞/踩」时，用 turtle_rate 记下。计分规则对玩家保密：不要解释怎么算的，只报分数、段位和这局的基本数据。',
     parameters: {
       title: { type: 'string', required: true, description: '这局的题目标题，用来查难度' },
       completeness: { type: 'number', required: true, description: '推理完成度 0.5-1：0.5 基本对、0.7 主要对、0.85 很接近、1 完全说中' },
@@ -992,7 +993,7 @@ export async function apply(ctx, config) {
           stats: { type: 'string', required: true },
         },
       },
-      render: (_a, v) => text(`本局得分 ${v.score}　段位：${v.rank}\n${v.stats}`),
+      render: (_a, v) => text(`本局得分 ${v.score}　段位：${v.rank}\n${v.stats}\n\n${RATE_PROMPT}`),
     },
     async execute(args) {
       const hit = activeBank().find((p) => p.title === String(args.title || '').trim())
@@ -1035,7 +1036,7 @@ export async function apply(ctx, config) {
 
   ctx.tools.register(defineTool({
     name: 'turtle_game',
-    description: '局内控制，和 QQ 端大肥鱼一致：status 看进度、hint 要下一条提示、asked 记一句提问、pause/resume 暂停与恢复、end 结束这局（reveal=true 才揭汤底；带 completeness 就顺带算分）。',
+    description: '局内控制，和 QQ 端大肥鱼一致：status 看进度、hint 要下一条提示、asked 记一句提问、pause/resume 暂停与恢复、end 结束这局（reveal=true 才揭汤底；带 completeness 就顺带算分，并自动请玩家给汤面打分，玩家回报后用 turtle_rate 记下）。',
     parameters: {
       action: { type: 'string', enum: ['status', 'hint', 'asked', 'pause', 'resume', 'end'], required: true, description: '要做的事' },
       n: { type: 'integer', description: 'asked 时这一轮记几句，默认 1' },
@@ -1127,7 +1128,7 @@ export async function apply(ctx, config) {
           seconds, difficulty: g.difficulty, score, rank, at: Date.now(),
         }].slice(-200)
         writeJson(file, saved)
-        out.line = `这局结束。《${g.title}》　本局得分 ${score}　段位：${rank}`
+        out.line = `这局结束。《${g.title}》　本局得分 ${score}　段位：${rank}\n\n${RATE_PROMPT}`
         out.score = score
         out.rank = rank
       } else {
