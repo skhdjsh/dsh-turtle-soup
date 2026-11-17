@@ -1,6 +1,6 @@
 - insert:
     - id: turtle-soup
-      name: '@local/dsh-turtle-soup'
+      name: 'dsh-turtle-soup'
       config:
         # 自建后端（server/）的地址；留空就只能在调用时传 serverUrl
         serverUrl: ''
