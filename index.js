@@ -9,7 +9,7 @@
  */
 
 import { createHash } from 'node:crypto'
-import { existsSync, mkdirSync, readFileSync, renameSync, writeFileSync } from 'node:fs'
+import { existsSync, mkdirSync, readFileSync, renameSync, unlinkSync, writeFileSync } from 'node:fs'
 import { createServer } from 'node:http'
 import { homedir } from 'node:os'
 import { join } from 'node:path'
@@ -311,6 +311,28 @@ function loadPending() {
   return data
 }
 
+// ---------- 当前这一局的会话状态（暂停/提示计数/已问几句） ----------
+
+function sessionPath() {
+  return join(dataDir(), 'session.json')
+}
+
+function loadSession() {
+  return readJson(sessionPath(), null)
+}
+
+function saveSession(game) {
+  writeJson(sessionPath(), game)
+}
+
+function clearSession() {
+  try {
+    unlinkSync(sessionPath())
+  } catch {
+    /* 本来就没有 */
+  }
+}
+
 function idOf(text) {
   return createHash('sha1').update(String(text)).digest('hex').slice(0, 10)
 }
@@ -550,7 +572,7 @@ export async function apply(ctx, config) {
       const unlimitedQ = args.unlimitedQuestions === true
       const unlimitedH = args.unlimitedHints === true
       const hints = p.hints ?? []
-      return {
+      const game = {
         title: p.title,
         kind: `${p.soup}·${p.style}`,
         difficulty: p.difficulty,
@@ -562,6 +584,16 @@ export async function apply(ctx, config) {
         truth: p.truth,
         hints,
       }
+      saveSession({
+        ...game,
+        soup: p.soup,
+        style: p.style,
+        hintsUsed: 0,
+        asked: 0,
+        started: Date.now(),
+        paused: false,
+      })
+      return game
     },
   })
   ctx.tools.register(drawTool)
@@ -892,10 +924,117 @@ export async function apply(ctx, config) {
         at: Date.now(),
       }].slice(-200)
       writeJson(file, saved)
+      clearSession()
       return { score, rank, stats }
     },
   })
   ctx.tools.register(scoreTool)
+
+  ctx.tools.register(defineTool({
+    name: 'turtle_game',
+    description: '局内控制，和 QQ 端大肥鱼一致：status 看进度、hint 要下一条提示、asked 记一句提问、pause/resume 暂停与恢复、end 结束这局（reveal=true 才揭汤底；带 completeness 就顺带算分）。',
+    parameters: {
+      action: { type: 'string', enum: ['status', 'hint', 'asked', 'pause', 'resume', 'end'], required: true, description: '要做的事' },
+      n: { type: 'integer', description: 'asked 时这一轮记几句，默认 1' },
+      reveal: { type: 'boolean', description: 'end 时是否揭晓汤底，默认 false（停止不剧透）' },
+      completeness: { type: 'number', description: 'end 时给 0.5-1 的推理完成度；给了就算分并记战绩' },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          line: { type: 'string', required: true },
+          truth: { type: 'string' },
+          score: { type: 'integer' },
+          rank: { type: 'string' },
+        },
+      },
+      render: (_a, v) => text(v.line + (v.truth ? `\n\n—— 汤底，主持人看，别念 ——\n${v.truth}` : '')),
+    },
+    async execute(args) {
+      const g = loadSession()
+      if (!g) throw new Error('现在没有进行中的局，先 turtle_draw 抽一道')
+      const allowed = Number(g.hintsAllowed) || (g.hintsUnlimited ? 0 : (g.hints?.length ?? 0))
+      const used = Number(g.hintsUsed) || 0
+      const rest = Number(g.budget) > 0 ? Math.max(0, Number(g.budget) - Number(g.asked || 0)) : null
+
+      if (args.action === 'status') {
+        return {
+          line: `《${g.title}》${stars(g.difficulty)} ${g.kind}　`
+            + (rest === null ? '提问不限次数' : `还剩 ${rest} 句`)
+            + `　提示 ${used}/${allowed || '∞'}`
+            + (g.paused ? '　（已暂停，闲聊不再当提问）' : ''),
+        }
+      }
+      if (args.action === 'hint') {
+        if (allowed > 0 && used >= allowed) throw new Error(`提示次数用完了（这题 ${allowed} 次）`)
+        const stored = (g.hints ?? [])[used]
+        g.hintsUsed = used + 1
+        saveSession(g)
+        return {
+          line: `提示 ${used + 1}/${allowed || '∞'}：`
+            + (stored || '（题目自带的提示用完了，按汤底现说一条）'),
+        }
+      }
+      if (args.action === 'asked') {
+        const add = Math.max(1, Number(args.n) || 1)
+        g.asked = Number(g.asked || 0) + add
+        saveSession(g)
+        const left = Number(g.budget) > 0 ? Math.max(0, Number(g.budget) - g.asked) : null
+        return {
+          line: left === null
+            ? `记下了，这局已问 ${g.asked} 句（不限次数）`
+            : `记下了，这局已问 ${g.asked} 句，还剩 ${left} 句`,
+        }
+      }
+      if (args.action === 'pause') {
+        g.paused = true
+        saveSession(g)
+        return { line: '行，这局先挂起。闲聊不再当提问，说「继续」再接着来。' }
+      }
+      if (args.action === 'resume') {
+        g.paused = false
+        saveSession(g)
+        return { line: `好，接着来。汤面还是：${g.face}` }
+      }
+
+      // end：结束这局
+      const out = { line: '' }
+      const seconds = Math.round((Date.now() - Number(g.started || Date.now())) / 1000)
+      if (args.completeness !== undefined && args.completeness !== null) {
+        const c = clamp(0.5, 1, Number(args.completeness))
+        const { score, rank } = scoreOf({
+          stars: g.difficulty,
+          completeness: c,
+          asked: Number(g.asked) || 0,
+          budget: Number(g.budget) || 0,
+          hintsUsed: used,
+          hintsAllowed: allowed,
+          seconds,
+          unlimitedQuestions: g.questionsUnlimited === true,
+          unlimitedHints: g.hintsUnlimited === true,
+        })
+        const file = join(dataDir(), 'stats.json')
+        const saved = readJson(file, { played: 0, solved: 0, recent: [] })
+        saved.played = (Number(saved.played) || 0) + 1
+        if (c >= 0.85) saved.solved = (Number(saved.solved) || 0) + 1
+        saved.recent = [...(saved.recent ?? []), {
+          title: g.title, solved: c >= 0.85, asked: Number(g.asked) || 0,
+          seconds, difficulty: g.difficulty, score, rank, at: Date.now(),
+        }].slice(-200)
+        writeJson(file, saved)
+        out.line = `这局结束。《${g.title}》　本局得分 ${score}　段位：${rank}`
+        out.score = score
+        out.rank = rank
+      } else {
+        out.line = `这局结束了（《${g.title}》），不计分。`
+      }
+      if (args.reveal === true) out.truth = g.truth
+      clearSession()
+      return out
+    },
+  }))
 
   ctx.tools.register(defineTool({
     name: 'turtle_stats',
