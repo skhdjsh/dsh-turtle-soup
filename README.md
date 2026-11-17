@@ -16,6 +16,7 @@
 | `turtle_stats` | 记战绩 |
 | `turtle_score` | 猜中后计分：按难度、推理完成度、剩余提问、剩余提示、用时算总分和段位（规则不公开） |
 | `turtle_game` | 局内控制：`status` 看进度、`hint` 要提示、`asked` 记句数、`pause`/`resume` 暂停恢复、`end` 结束（`reveal=true` 才揭汤底，带 `completeness` 就顺带算分） |
+| `turtle_rate` | 给汤面打分（1-10，默认 5）+ 赞/踩；满 4 人才算平均分，低分题降权、低于 2 分提示下架 |
 
 数据存在 `~/.dsh/turtle-soup/`，插件零依赖（不 import 任何 DSH 内部包）。
 

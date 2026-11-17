@@ -186,6 +186,51 @@ function hintsAllowedFor(difficulty) {
 const clamp = (lo, hi, v) => Math.max(lo, Math.min(hi, Number.isFinite(v) ? v : lo))
 
 /**
+ * 一道题的社区评价：平均分只在评分人数 > 3 时采信，避免头几个人定调。
+ * 返回的出题权重会拿去做加权随机。
+ */
+function qualityOf(p) {
+  const ratings = (Array.isArray(p.ratings) ? p.ratings : [])
+    .map((n) => Number(n))
+    .filter((n) => Number.isFinite(n) && n >= 1 && n <= 10)
+  const likes = Math.max(0, Number(p.likes) || 0)
+  const dislikes = Math.max(0, Number(p.dislikes) || 0)
+  const count = ratings.length
+  const average = count ? ratings.reduce((a, b) => a + b, 0) / count : 0
+  const votes = likes + dislikes
+
+  let weight = 1
+  if (count > 3) {
+    if (average >= 8) weight = 1.2
+    else if (average >= 6) weight = 1
+    else if (average >= 4) weight = 0.8
+    else if (average >= 2) weight = 0.5
+    else weight = 0.2
+  }
+  if (votes >= 3 && dislikes / votes > 0.5) weight *= 0.6
+
+  return { count, average, likes, dislikes, votes, weight: Math.max(0.05, weight) }
+}
+
+/** 分数够低、评的人够多，就该考虑下架。 */
+function needsReview(p) {
+  const q = qualityOf(p)
+  return q.count >= 4 && q.average < 2
+}
+
+/** 按评价加权随机抽一道。 */
+function weightedPick(list) {
+  const rows = list.map((p) => ({ p, w: qualityOf(p).weight }))
+  const total = rows.reduce((sum, x) => sum + x.w, 0)
+  let roll = Math.random() * total
+  for (const x of rows) {
+    roll -= x.w
+    if (roll <= 0) return x.p
+  }
+  return rows[rows.length - 1].p
+}
+
+/**
  * 一局的分数。公式对玩家保密，只对外报分数和段位。
  * 设计目标：难度值钱、推理完整度决定性、省问题/省提示/快有加成，但单项都压不过难度与完整度。
  */
@@ -214,8 +259,7 @@ function scoreOf({ stars, completeness, asked, budget, hintsUsed, hintsAllowed,
  * 段位：五个正式档 + 一堆彩蛋。
  * 彩蛋按优先级判定，只有撞上了才出现，玩家得自己发现。
  */
-function rankOf(score, stars, info = {}) {
-  const d = Number(stars) || 3
+function rankOf(score, stars, info = {}) {  const d = Number(stars) || 3
   const asked = Number(info.asked) || 0
   const seconds = Number(info.seconds) || 0
   const tb = Number(info.timeBudget) || 0
@@ -391,6 +435,59 @@ export async function apply(ctx, config) {
   const submitToken = String(cfg.submitToken ?? '').trim()
   const adminToken = String(cfg.adminToken ?? '').trim()
 
+  const rateTool = defineTool({
+    name: 'turtle_rate',
+    description: '给一道题的汤面打分（1-10，默认 5）并可选点赞/点踩。评分人数超过 3 人才算平均分；分数低、踩多的题会被降低出题概率；平均分低于 2 分且满 4 人评分时提示下架。',
+    parameters: {
+      key: { type: 'string', required: true, description: '题号或标题' },
+      score: { type: 'integer', description: '汤面评分 1-10，不给就只投票' },
+      vote: { type: 'string', enum: ['like', 'dislike', 'none'], description: '点赞 / 点踩 / 不投，默认 none' },
+    },
+    output: {
+      schema: {
+        type: 'object',
+        additionalProperties: false,
+        properties: {
+          title: { type: 'string', required: true },
+          count: { type: 'integer', required: true },
+          average: { type: 'number' },
+          likes: { type: 'integer', required: true },
+          dislikes: { type: 'integer', required: true },
+          lowRated: { type: 'boolean', required: true },
+        },
+      },
+      render: (_a, v) => text(
+        `《${v.title}》记下了：${v.count} 人评分`
+        + (v.average === undefined ? '（满 4 人才算平均分）' : `，平均 ${v.average.toFixed(1)} 分`)
+        + `　赞 ${v.likes} / 踩 ${v.dislikes}`
+        + (v.lowRated ? '\n⚠ 平均分低于 2，建议下架：确认后 turtle_delete 删掉。' : '')),
+    },
+    async execute(args) {
+      const bank = loadBank()
+      const hit = findByKey(bank.puzzles.filter((p) => !p.deleted), args.key)
+      if (!hit) throw new Error('没找到这道题')
+      if (args.score !== undefined && args.score !== null) {
+        const list = Array.isArray(hit.ratings) ? hit.ratings : []
+        hit.ratings = [...list, Math.round(clamp(1, 10, Number(args.score)))].slice(-500)
+      }
+      const vote = String(args.vote || 'none')
+      if (vote === 'like') hit.likes = (Number(hit.likes) || 0) + 1
+      if (vote === 'dislike') hit.dislikes = (Number(hit.dislikes) || 0) + 1
+      hit.updated = Date.now()
+      writeJson(bankPath(), bank)
+      const q = qualityOf(hit)
+      return {
+        title: hit.title,
+        count: q.count,
+        ...(q.count > 3 ? { average: Number(q.average.toFixed(1)) } : {}),
+        likes: q.likes,
+        dislikes: q.dislikes,
+        lowRated: needsReview(hit),
+      }
+    },
+  })
+  ctx.tools.register(rateTool)
+
   const bankTool = defineTool({
     name: 'turtle_bank',
     description: '概览本地海龟汤题库：总数、红黑清与格局的分布、平均难度、待审投稿数量、战绩。',
@@ -407,13 +504,15 @@ export async function apply(ctx, config) {
           played: { type: 'integer', required: true },
           solved: { type: 'integer', required: true },
           bestScore: { type: 'integer', required: true },
+          lowRated: { type: 'array', required: true, items: { type: 'string' } },
         },
       },
       render: (_a, v) => text(
         `题库 ${v.total} 道，平均 ${v.averageDifficulty.toFixed(1)} 星；待审投稿 ${v.pending} 条。\n`
         + Object.entries(v.byKind).map(([k, n]) => `${k} ${n}`).join('、') + '\n'
         + `战绩：开局 ${v.played} 次，猜中 ${v.solved} 次`
-        + (v.bestScore > 0 ? `，最高分 ${v.bestScore}。` : '。')),
+        + (v.bestScore > 0 ? `，最高分 ${v.bestScore}。` : '。')
+        + (v.lowRated.length ? `\n⚠ 建议下架：${v.lowRated.join('、')}（平均分低于 2）` : '')),
     },
     async execute() {
       const bank = activeBank()
@@ -435,6 +534,7 @@ export async function apply(ctx, config) {
         played: Number(stats.played) || 0,
         solved: Number(stats.solved) || 0,
         bestScore,
+        lowRated: bank.filter(needsReview).map((p) => p.title),
       }
     },
   })
@@ -565,7 +665,7 @@ export async function apply(ctx, config) {
         const rest = pool.filter((p) => p.title !== args.avoidTitle)
         if (rest.length) candidates = rest
       }
-      const p = candidates[Math.floor(Math.random() * candidates.length)]
+      const p = weightedPick(candidates)
       const stats = readJson(join(dataDir(), 'stats.json'), { played: 0, solved: 0 })
       stats.played = (Number(stats.played) || 0) + 1
       writeJson(join(dataDir(), 'stats.json'), stats)
@@ -598,7 +698,7 @@ export async function apply(ctx, config) {
   })
   ctx.tools.register(drawTool)
 
-  ctx.tools.register(defineTool({
+  const addTool = defineTool({
     name: 'turtle_add',
     description: '直接往题库里加一道题（管理操作，装插件的人才有）。加完立刻能抽到。',
     parameters: {
@@ -632,7 +732,8 @@ export async function apply(ctx, config) {
       writeJson(bankPath(), bank)
       return { total: bank.puzzles.length, index: bank.puzzles.length, title: puzzle.title }
     },
-  }))
+  })
+  ctx.tools.register(addTool)
 
   ctx.tools.register(defineTool({
     name: 'turtle_edit',
@@ -689,7 +790,7 @@ export async function apply(ctx, config) {
     },
   }))
 
-  ctx.tools.register(defineTool({
+  const deleteTool = defineTool({
     name: 'turtle_delete',
     description: '从题库删掉一道题（管理操作）。用序号或标题指定。',
     parameters: {
@@ -717,7 +818,8 @@ export async function apply(ctx, config) {
       writeJson(bankPath(), bank)
       return { title: target.title, total: active.length - 1 }
     },
-  }))
+  })
+  ctx.tools.register(deleteTool)
 
   ctx.tools.register(defineTool({
     name: 'turtle_export',
@@ -1528,6 +1630,15 @@ export async function apply(ctx, config) {
         }
         if (req.method === 'POST' && url.pathname === '/draw') {
           return reply(res, 200, { ok: true, ...(await drawTool.execute(await readBody(req), {})) })
+        }
+        if (req.method === 'POST' && url.pathname === '/add') {
+          return reply(res, 200, { ok: true, ...(await addTool.execute(await readBody(req), {})) })
+        }
+        if (req.method === 'POST' && url.pathname === '/rate') {
+          return reply(res, 200, { ok: true, ...(await rateTool.execute(await readBody(req), {})) })
+        }
+        if (req.method === 'POST' && url.pathname === '/delete') {
+          return reply(res, 200, { ok: true, ...(await deleteTool.execute(await readBody(req), {})) })
         }
         if (req.method === 'POST' && url.pathname === '/score') {
           return reply(res, 200, { ok: true, ...(await scoreTool.execute(await readBody(req), {})) })
