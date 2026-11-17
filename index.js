@@ -466,23 +466,24 @@ export async function apply(ctx, config) {
       const bank = loadBank()
       const hit = findByKey(bank.puzzles.filter((p) => !p.deleted), args.key)
       if (!hit) throw new Error('没找到这道题')
+      const target = hit.puzzle
       if (args.score !== undefined && args.score !== null) {
-        const list = Array.isArray(hit.ratings) ? hit.ratings : []
-        hit.ratings = [...list, Math.round(clamp(1, 10, Number(args.score)))].slice(-500)
+        const list = Array.isArray(target.ratings) ? target.ratings : []
+        target.ratings = [...list, Math.round(clamp(1, 10, Number(args.score)))].slice(-500)
       }
       const vote = String(args.vote || 'none')
-      if (vote === 'like') hit.likes = (Number(hit.likes) || 0) + 1
-      if (vote === 'dislike') hit.dislikes = (Number(hit.dislikes) || 0) + 1
-      hit.updated = Date.now()
+      if (vote === 'like') target.likes = (Number(target.likes) || 0) + 1
+      if (vote === 'dislike') target.dislikes = (Number(target.dislikes) || 0) + 1
+      target.updated = Date.now()
       writeJson(bankPath(), bank)
-      const q = qualityOf(hit)
+      const q = qualityOf(target)
       return {
-        title: hit.title,
+        title: target.title,
         count: q.count,
         ...(q.count > 3 ? { average: Number(q.average.toFixed(1)) } : {}),
         likes: q.likes,
         dislikes: q.dislikes,
-        lowRated: needsReview(hit),
+        lowRated: needsReview(target),
       }
     },
   })
