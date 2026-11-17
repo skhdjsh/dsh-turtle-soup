@@ -1,9 +1,9 @@
 {
   "name": "@local/dsh-turtle-soup",
-  "version": "1.12.0",
+  "version": "1.13.0",
   "private": true,
   "type": "module",
-  "description": "海龟汤题库与投稿审核：本地题库、投稿码、审核入库、抽题与揭晓",
+  "description": "海龟汤题库与主持人工具：内置 100 道题，抽题点单、局内控制、计分段位、社区评分、投稿码与 Issue 审核",
   "license": "MIT",
   "author": "zexuan604",
   "keywords": [
@@ -11,7 +11,9 @@
     "plugin",
     "turtle-soup",
     "海龟汤",
-    "puzzle"
+    "puzzle",
+    "game",
+    "scoring"
   ],
   "homepage": "https://github.com/skhdjsh/dsh-turtle-soup",
   "repository": {

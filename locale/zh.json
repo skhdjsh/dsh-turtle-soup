@@ -1,7 +1,7 @@
 {
   "meta": {
     "title": "海龟汤题库",
-    "description": "本地海龟汤题库：抽题、增删改题目、按难度点汤；别人用投稿码或 GitHub/Gitee Issue 交题，你审核后入库。",
+    "description": "内置 100 道海龟汤：抽题点单（类型/难度/不限模式）、提示与暂停、计分段位、评分赞踩；也能管题库，收投稿码或 GitHub/Gitee Issue 并审核入库。",
     "detail": "docs/DETAIL.md"
   }
 }
