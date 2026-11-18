@@ -34,6 +34,25 @@
 
 **本地目录**：Plugins → Add plugin → 选这个目录。
 
+## 网页版 / 常驻引擎（可选）
+
+engine/ 里是一个零依赖的常驻服务，把题库、计分、评分从 DSH 里拿出来，网页和聊天机器人都能连它：
+
+`ash
+node engine/server.mjs            # 127.0.0.1:8800
+PORT=9000 node engine/server.mjs  # 换端口
+PUBLIC=1 node engine/server.mjs   # 监听 0.0.0.0（给隧道或 VPS 用）
+`
+
+打开 http://127.0.0.1:8800 就是手机友好的 H5：筛选开局、问答、提示、暂停、结算、评分。
+
+- 汤底**只留在服务端**，/draw 不下发，猜中才一次性返回
+- 会话按 userId 分开，多人可以同时玩
+- 评分按 userId 去重，一个人只能评一次
+- 判题和现编提示走 DeepSeek，key 从 DEEPSEEK_KEY 环境变量或 C:\dafeiyu\private\deepseek-key.txt 读
+
+接口：/health /bank /list /draw /ask /hint /pause /resume /end /rate。
+
 ## 配置
 
 `cordis.patch.yml` 的 `config`：

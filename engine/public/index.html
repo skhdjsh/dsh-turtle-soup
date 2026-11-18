@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>海龟汤</title>
+<style>
+  :root {
+    --bg: #12100e; --card: #1c1916; --line: #2e2823;
+    --text: #f2ece4; --dim: #a89e93; --accent: #d8a46b; --ok: #7fb685; --bad: #d97a6c;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font: 16px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif;
+    padding: 16px 14px 40px; min-height: 100vh;
+  }
+  .wrap { max-width: 560px; margin: 0 auto; }
+  h1 { font-size: 20px; margin: 6px 0 2px; letter-spacing: 1px; }
+  .sub { color: var(--dim); font-size: 13px; margin-bottom: 18px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 16px; margin-bottom: 14px; }
+  .row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
+  label { display: block; font-size: 12px; color: var(--dim); margin-bottom: 5px; }
+  select, input[type=text] {
+    width: 100%; background: #14110f; color: var(--text); border: 1px solid var(--line);
+    border-radius: 10px; padding: 11px 12px; font-size: 15px; outline: none;
+  }
+  select { appearance: none; }
+  .field { flex: 1 1 120px; min-width: 0; }
+  button {
+    border: 0; border-radius: 10px; padding: 12px 16px; font-size: 15px;
+    background: var(--accent); color: #241a10; font-weight: 600; cursor: pointer;
+  }
+  button.ghost { background: transparent; color: var(--dim); border: 1px solid var(--line); font-weight: 400; }
+  button.wide { width: 100%; }
+  button:disabled { opacity: .45; cursor: default; }
+  .tag { display: inline-block; font-size: 12px; color: var(--accent); border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; margin-right: 6px; }
+  .face { font-size: 17px; line-height: 1.75; margin: 6px 0 12px; white-space: pre-wrap; }
+  .meta { color: var(--dim); font-size: 13px; margin-bottom: 4px; }
+  .bubble { border-radius: 12px; padding: 10px 13px; margin: 8px 0; max-width: 82%; font-size: 15px; }
+  .bubble.me { background: #2a2320; margin-left: auto; }
+  .bubble.host { background: #241f1a; border: 1px solid var(--line); }
+  .verdict { font-weight: 600; }
+  .v-yes { color: var(--ok); } .v-no { color: #d8a46b; } .v-irrelevant { color: var(--dim); }
+  .v-near { color: #e0b45c; } .v-guess { color: #8fb8d8; }
+  .score { font-size: 30px; font-weight: 700; color: var(--accent); }
+  .rank { font-size: 15px; color: var(--dim); margin-top: 2px; }
+  .truth { margin-top: 12px; padding: 12px; border-radius: 10px; background: #14110f; border: 1px dashed var(--line); font-size: 15px; line-height: 1.75; }
+  .rate-row { display: flex; align-items: center; gap: 10px; margin: 10px 0; }
+  input[type=range] { flex: 1; accent-color: var(--accent); }
+  .hidden { display: none !important; }
+  .hint-box { color: var(--dim); font-size: 14px; margin-top: 8px; }
+  .toast { position: fixed; left: 50%; bottom: 26px; transform: translateX(-50%); background: #2b2521; color: var(--text); padding: 9px 16px; border-radius: 999px; font-size: 14px; opacity: 0; transition: .25s; pointer-events: none; }
+  .toast.on { opacity: 1; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h1>海龟汤</h1>
+  <div class="sub" id="sub">正在连引擎…</div>
+
+  <!-- 开局 -->
+  <div class="card" id="start">
+    <div class="row">
+      <div class="field"><label>汤型</label>
+        <select id="soup"><option value="">随机</option><option>清汤</option><option>红汤</option><option>黑汤</option></select>
+      </div>
+      <div class="field"><label>格局</label>
+        <select id="style"><option value="">随机</option><option>本格</option><option>变格</option></select>
+      </div>
+    </div>
+    <div class="row">
+      <div class="field"><label>最低星</label>
+        <select id="dmin"><option value="1">1★</option><option value="2">2★</option><option value="3">3★</option><option value="4">4★</option><option value="5">5★</option></select>
+      </div>
+      <div class="field"><label>最高星</label>
+        <select id="dmax"><option value="5">5★</option><option value="2">2★</option><option value="3">3★</option><option value="4">4★</option><option value="1">1★</option></select>
+      </div>
+    </div>
+    <div class="row" style="margin-bottom:14px">
+      <label style="color:var(--text);font-size:14px;display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="uq"> 不限提问次数
+      </label>
+      <label style="color:var(--text);font-size:14px;display:flex;align-items:center;gap:6px">
+        <input type="checkbox" id="uh"> 不限提示次数
+      </label>
+    </div>
+    <button class="wide" id="btnDraw">开一局</button>
+  </div>
+
+  <!-- 对局 -->
+  <div class="card hidden" id="game">
+    <div style="margin-bottom:8px"><span class="tag" id="gTitle"></span><span class="tag" id="gKind"></span></div>
+    <div class="face" id="gFace"></div>
+    <div class="meta" id="gMeta"></div>
+    <div id="log"></div>
+    <div class="row" style="margin-top:12px">
+      <input type="text" id="q" placeholder="问一个是非问题，或说出你的猜测" maxlength="200">
+      <button id="btnAsk">问</button>
+    </div>
+    <div class="row">
+      <button class="ghost" id="btnHint">提示</button>
+      <button class="ghost" id="btnPause">暂停</button>
+      <button class="ghost" id="btnEnd">结束</button>
+      <button class="ghost" id="btnReveal">看汤底</button>
+    </div>
+  </div>
+
+  <!-- 结算 -->
+  <div class="card hidden" id="result">
+    <div id="scoreBox"></div>
+    <div class="truth hidden" id="truthBox"></div>
+    <div style="margin-top:16px">
+      <label>给这道汤的汤面打个分（1-10）</label>
+      <div class="rate-row">
+        <input type="range" id="score" min="1" max="10" value="5" step="1">
+        <span id="scoreVal" style="width:28px;text-align:right;color:var(--accent);font-weight:600">5</span>
+      </div>
+      <div class="row">
+        <button class="ghost" id="btnLike">赞</button>
+        <button class="ghost" id="btnDislike">踩</button>
+        <button id="btnSubmitRate">提交评分</button>
+        <button class="ghost" id="btnSkip">跳过</button>
+      </div>
+    </div>
+    <div style="margin-top:16px"><button class="wide" id="btnAgain">再来一局</button></div>
+  </div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+const API = '';
+let userId = localStorage.getItem('turtle_uid');
+if (!userId) { userId = 'u-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4); localStorage.setItem('turtle_uid', userId); }
+let game = null, title = null, lastVote = null;
+
+const $ = (id) => document.getElementById(id);
+const toast = (msg) => { const t = $('toast'); t.textContent = msg; t.classList.add('on'); setTimeout(() => t.classList.remove('on'), 1800); };
+
+async function api(path, payload) {
+  const opt = payload === undefined ? {} : {
+    method: 'POST', headers: { 'content-type': 'application/json' },
+    body: JSON.stringify({ userId, ...payload }),
+  };
+  const r = await fetch(API + path, opt);
+  const j = await r.json().catch(() => ({ ok: false, error: '返回不是 JSON' }));
+  if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+  return j;
+}
+
+const VERDICT = { yes: ['是', 'v-yes'], no: ['不是', 'v-no'], irrelevant: ['跟这个没关系', 'v-irrelevant'], near: ['接近了', 'v-near'], guess: ['猜对了！', 'v-guess'] };
+
+function addBubble(text, mine, cls) {
+  const div = document.createElement('div');
+  div.className = 'bubble ' + (mine ? 'me' : 'host') + (cls ? ' ' + cls : '');
+  div.textContent = text;
+  $('log').appendChild(div);
+  div.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+}
+
+function renderGame(g) {
+  game = g; title = g.title;
+  $('start').classList.add('hidden');
+  $('result').classList.add('hidden');
+  $('game').classList.remove('hidden');
+  $('gTitle').textContent = '《' + g.title + '》';
+  $('gKind').textContent = g.kind + ' ' + '★'.repeat(g.difficulty) + '☆'.repeat(5 - g.difficulty);
+  $('gFace').textContent = g.face;
+  $('log').innerHTML = '';
+  updateMeta(g);
+}
+
+function updateMeta(g) {
+  const parts = [];
+  parts.push(g.questionsUnlimited ? '提问不限次数' : '还剩 ' + g.budgetLeft + ' 句');
+  parts.push(g.hintsUnlimited ? '提示不限次数' : '提示 ' + g.hintsLeft + ' 次');
+  if (g.paused) parts.push('（已暂停）');
+  $('gMeta').textContent = parts.join(' · ');
+}
+
+function showResult(data) {
+  $('game').classList.add('hidden');
+  $('result').classList.remove('hidden');
+  const lines = [];
+  if (data.score !== undefined) {
+    lines.push('<div class="score">' + data.score + '</div><div class="rank">段位：' + data.rank + '　问了 ' + data.asked + ' 句 · ' + data.seconds + ' 秒</div>');
+  } else {
+    lines.push('<div class="rank">这局结束了，没算分。</div>');
+  }
+  $('scoreBox').innerHTML = lines.join('');
+  if (data.truth) {
+    $('truthBox').classList.remove('hidden');
+    $('truthBox').textContent = '汤底：' + data.truth;
+  } else {
+    $('truthBox').classList.add('hidden');
+    $('truthBox').textContent = '';
+  }
+}
+
+async function draw() {
+  $('btnDraw').disabled = true;
+  try {
+    const d = await api('/draw', {
+      soup: $('soup').value || undefined,
+      style: $('style').value || undefined,
+      minDifficulty: Number($('dmin').value),
+      maxDifficulty: Number($('dmax').value),
+      unlimitedQuestions: $('uq').checked,
+      unlimitedHints: $('uh').checked,
+    });
+    renderGame(d.game);
+  } catch (e) { toast(e.message); }
+  $('btnDraw').disabled = false;
+}
+
+async function ask() {
+  const text = $('q').value.trim();
+  if (!text) return;
+  $('q').value = '';
+  addBubble(text, true);
+  $('btnAsk').disabled = true;
+  try {
+    const d = await api('/ask', { text });
+    const v = VERDICT[d.verdict] || ['……', ''];
+    if (d.verdict === 'guess') {
+      addBubble(v[0], false, v[1]);
+      const truth = await api('/end', { reveal: true }).catch(() => null);
+      showResult({ score: d.score, rank: d.rank, asked: d.asked, seconds: d.seconds, truth: d.truth });
+      return;
+    }
+    addBubble(v[0], false, v[1]);
+    if (d.exhausted) { showResult({ score: d.score, rank: d.rank, asked: d.asked, seconds: d.seconds, truth: d.truth }); return; }
+    updateMeta(d);
+  } catch (e) { toast(e.message); }
+  $('btnAsk').disabled = false;
+}
+
+async function hint() {
+  try { const d = await api('/hint'); addBubble('提示：' + d.hint, false); updateMeta({ ...game, hintsLeft: (d.allowed || 0) - d.used, hintsUnlimited: !d.allowed, budgetLeft: game.budgetLeft, questionsUnlimited: game.questionsUnlimited }); }
+  catch (e) { toast(e.message); }
+}
+
+async function pause() {
+  try {
+    const d = await api(game.paused ? '/resume' : '/pause');
+    game = { ...game, paused: d.paused };
+    updateMeta(game);
+    toast(d.paused ? '已暂停，闲聊不再当提问' : '继续');
+  } catch (e) { toast(e.message); }
+}
+
+async function endGame(reveal) {
+  try {
+    const d = await api('/end', { reveal });
+    showResult(d);
+  } catch (e) { toast(e.message); }
+}
+
+async function rate(vote) {
+  try {
+    const body = { key: title, score: Number($('score').value) };
+    if (vote) body.vote = vote;
+    const d = await api('/rate', body);
+    toast(d.duplicate ? '你已经评过这道题了' : ('已记录' + (d.average ? '，平均 ' + d.average + ' 分' : '')));
+    $('btnSubmitRate').disabled = true;
+  } catch (e) { toast(e.message); }
+}
+
+$('btnDraw').onclick = draw;
+$('btnAgain').onclick = () => { $('result').classList.add('hidden'); $('start').classList.remove('hidden'); };
+$('btnAsk').onclick = ask;
+$('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') ask(); });
+$('btnHint').onclick = hint;
+$('btnPause').onclick = pause;
+$('btnEnd').onclick = () => endGame(false);
+$('btnReveal').onclick = () => endGame(true);
+$('score').oninput = (e) => { $('scoreVal').textContent = e.target.value; };
+$('btnSubmitRate').onclick = () => rate(null);
+$('btnLike').onclick = () => rate('like');
+$('btnDislike').onclick = () => rate('dislike');
+$('btnSkip').onclick = () => { $('btnSubmitRate').disabled = true; toast('这局不打分'); };
+
+api('/health').then((d) => { $('sub').textContent = '题库 ' + d.bank + ' 道'; }).catch(() => { $('sub').textContent = '连不上引擎'; });
+</script>
+</body>
+</html>

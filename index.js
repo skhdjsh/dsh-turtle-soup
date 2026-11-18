@@ -1661,3 +1661,10 @@ export async function apply(ctx, config) {
     }, 'turtle-soup: local bridge')
   }
 }
+
+// 给常驻引擎（engine/server.mjs）复用同一套题库/计分/评分逻辑
+export {
+  dataDir, readJson, writeJson, bankPath, readTokens, stars, budgetOf, hintsAllowedFor,
+  clamp, qualityOf, needsReview, weightedPick, scoreOf, rankOf, normalize, loadBank,
+  activeBank, findByKey, idOf, encodeCode, decodeCode, SOUPS, STYLES,
+}
